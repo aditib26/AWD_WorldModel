@@ -1,7 +1,0 @@
-Tester Name,Organization,Province,Phone Number,Email,Device Model,Operating System,Browser,Network Type,Test Date,Test Start Time,Test End Time,Total Duration (minutes),Onboarding/Login (1-5),Navigation Clarity (1-5),Assistant Usefulness (1-5),Assistant Safety (1-5),Voice Usability (1-5),Disease Detection (1-5),Weather Usefulness (1-5),Tasks/Journal (1-5),Vietnamese Quality (1-5),Mobile Experience (1-5),Overall Experience (1-5),Top Strength 1,Top Strength 2,Top Strength 3,Top Issue 1,Top Issue 2,Top Issue 3,Would Farmers Use This? (Yes/No/Maybe),Why would or wouldn't farmers use this?,Most Useful Feature,Least Useful Feature,Additional Comments
-
-INSTRUCTIONS:
-"Fill one row with your information and ratings"
-"Rate features from 1 (Poor) to 5 (Excellent)"
-"Provide detailed explanations in the comment fields"
-"Save file as: YourName_Feedback.csv"

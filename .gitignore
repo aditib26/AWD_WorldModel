@@ -1,49 +1,23 @@
-# Environment & secrets
-.env
-.env.*
+# Ignore everything by default
+*
+
+# Only allow these
+!.gitignore
+!Dockerfile
+!requirements.txt
 !.env.example
+!.dockerignore
+!water_mgmt/
+!water_mgmt/**
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-*.egg-info/
-dist/
-build/
-*.egg
-
-# Virtual environments
-venv/
-.venv/
-env/
-
-# Data & databases
+# Exclude within water_mgmt
+water_mgmt/__pycache__/
+water_mgmt/**/__pycache__/
+water_mgmt/**/*.pyc
 water_mgmt_data/
 *.db
 *.sqlite3
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Logs
 *.log
 *.ndjson
-
-# OS
-Thumbs.db
-
-# Nested git repos (deploy separately)
-RA_Backend/
-RA_Frontend/
-
-# Sensitive documents
-Documents for AIRRVie rice farming assistant/
-
-# AWD state cache
-AWD_World_Model/.awd_state/
+.env
+.DS_Store
