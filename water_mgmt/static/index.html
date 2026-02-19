@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rice Assistant</title>
+    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ============ SCREEN 1: AUTH ============ -->
+    <div id="authScreen" class="screen">
+        <div class="auth-page">
+            <div class="auth-card">
+                <div class="auth-brand">
+                    <span class="auth-logo">🌾</span>
+                    <h1>Rice Assistant</h1>
+                    <p>Intelligent irrigation advice powered by AWD handbook</p>
+                </div>
+                <div class="auth-tabs">
+                    <button class="auth-tab active" id="tabLogin">Log in</button>
+                    <button class="auth-tab" id="tabSignup">Sign up</button>
+                </div>
+                <form id="authForm" class="auth-form" autocomplete="off">
+                    <div class="form-field">
+                        <label for="authEmail">Email</label>
+                        <input type="email" id="authEmail" placeholder="you@example.com" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="authPassword">Password</label>
+                        <input type="password" id="authPassword" placeholder="Min 8 characters" required minlength="8">
+                    </div>
+                    <div id="authError" class="auth-error" style="display:none;"></div>
+                    <button type="submit" class="btn-primary auth-submit" id="authSubmitBtn">Log in</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ SCREEN 2: DASHBOARD ============ -->
+    <div id="dashScreen" class="screen" style="display:none;">
+        <div class="dash-page">
+            <div class="dash-topbar">
+                <div class="dash-brand">
+                    <span>🌾</span>
+                    <strong>Rice Assistant</strong>
+                </div>
+                <div class="dash-user">
+                    <span id="dashUserEmail"></span>
+                    <button class="btn-secondary btn-sm" id="dashLogoutBtn">Log out</button>
+                </div>
+            </div>
+            <div class="dash-content">
+                <h2>Your Farms</h2>
+                <p class="dash-subtitle">Select a farm to chat, or create a new one.</p>
+                <div class="dash-grid" id="dashFarmGrid">
+                    <!-- Farm cards injected by JS -->
+                </div>
+                <button class="dash-new-farm" id="dashNewFarmBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                    <span>Create New Farm</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ SCREEN 3: APP (sidebar + chat) ============ -->
+    <div id="appScreen" class="screen" style="display:none;">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <span class="logo-icon">🌾</span>
+                    <span class="logo-text">Rice Assistant</span>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12h18M3 6h18M3 18h18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <button class="new-chat-btn" id="newFarmBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                <span>New Farm</span>
+            </button>
+
+            <div class="sidebar-section">
+                <div class="section-title">Your Farms</div>
+                <div class="farm-list" id="farmList"></div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="theme-toggle" id="themeToggle">
+                    <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+                <button class="btn-secondary btn-sm" id="backToDashBtn" style="flex:1;">All Farms</button>
+                <button class="btn-secondary btn-sm" id="logoutBtn">Log out</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="chat-container" id="chatContainer">
+                <div class="status-bar" id="statusBar">
+                    <div class="status-info">
+                        <span class="status-farm-name" id="statusFarmName">-</span>
+                        <span class="status-separator">•</span>
+                        <span class="status-regime" id="statusRegime">AWD</span>
+                        <span class="status-separator">•</span>
+                        <span class="status-das" id="statusDas">-</span>
+                    </div>
+                    <div class="status-actions">
+                        <button class="btn-primary btn-sm" id="dailyCheckinBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                            </svg>
+                            Daily Check-In
+                        </button>
+                        <button class="btn-secondary btn-sm" id="worldModelBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                            </svg>
+                            World Model
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <div class="assistant-avatar"><span>🌾</span></div>
+                        <div class="message-content">
+                            <div class="message-header">Rice Assistant</div>
+                            <p>Hello! I'm your intelligent irrigation advisor. Tell me about your field conditions or ask me anything about water management.</p>
+                            <div class="suggested-prompts">
+                                <button class="prompt-suggestion">Water table is 16 cm below surface</button>
+                                <button class="prompt-suggestion">I see small cracks in my field</button>
+                                <button class="prompt-suggestion">Should I irrigate today?</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <textarea id="chatInput" placeholder="Message Rice Assistant..." rows="1" class="chat-input"></textarea>
+                        <button id="sendBtn" class="send-btn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        <span class="input-hint">Press Enter to send, Shift + Enter for new line</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Setup Modal -->
+            <div class="modal" id="profileModal" style="display:none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Create Farm Profile</h2>
+                        <button class="modal-close" id="closeProfileModal">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <form id="profileForm" class="modal-form">
+                        <div class="form-row">
+                            <div class="form-field"><label>Farmer ID</label><input type="text" id="farmerId" required placeholder="e.g., farmer_001"></div>
+                            <div class="form-field"><label>Farm ID</label><input type="text" id="farmIdCreate" required placeholder="e.g., farm_demo_1"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-field"><label>Province</label><input type="text" id="province" value="An Giang"></div>
+                            <div class="form-field"><label>Soil Type</label>
+                                <select id="soilType">
+                                    <option value="alluvial">Alluvial</option><option value="clay">Clay</option>
+                                    <option value="sandy">Sandy</option><option value="acid_sulfate">Acid Sulfate</option>
+                                    <option value="unknown">Unknown</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-field"><label class="checkbox-label"><input type="checkbox" id="irrigationAccess" checked><span>Has Irrigation Access</span></label></div>
+                            <div class="form-field"><label class="checkbox-label"><input type="checkbox" id="awdTube" checked><span>Has AWD Tube</span></label></div>
+                        </div>
+                        <div class="form-field"><label>Sowing Date (Optional)</label><input type="date" id="sowingDate"></div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" id="cancelProfile">Cancel</button>
+                            <button type="submit" class="btn-primary">Create Farm</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- World Model Modal -->
+            <div class="modal modal-lg" id="worldModelModal" style="display:none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>World Model - Farm State & AWD Rules</h2>
+                        <button class="modal-close" id="closeWorldModelModal">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="world-model-explainer">
+                            <div class="explainer-icon">🌾</div>
+                            <div class="explainer-text">
+                                <strong>What is the World Model?</strong>
+                                <p>The World Model tracks your farm's state from your conversations — water levels, soil conditions, growth stage, and regime. It uses AWD handbook rules to assess whether you should irrigate.</p>
+                            </div>
+                        </div>
+                        <div class="wm-section"><h3>Current Field State</h3>
+                            <div class="state-grid" id="currentStateGrid">
+                                <div class="state-card"><div class="state-label">Days After Sowing</div><div class="state-value" id="wmDas">-</div></div>
+                                <div class="state-card"><div class="state-label">Growth Stage</div><div class="state-value" id="wmStage">-</div></div>
+                                <div class="state-card"><div class="state-label">Ponded Water</div><div class="state-value" id="wmPonded">- cm</div></div>
+                                <div class="state-card"><div class="state-label">Water Table Depth</div><div class="state-value" id="wmWaterTable">-</div></div>
+                                <div class="state-card"><div class="state-label">Soil Cracks</div><div class="state-value" id="wmSoilMoisture">-</div></div>
+                                <div class="state-card"><div class="state-label">Irrigation Regime</div><div class="state-value" id="wmRegime">-</div></div>
+                            </div>
+                        </div>
+                        <div class="wm-section"><h3>🌤️ Live Weather</h3>
+                            <p class="section-desc">Real-time data from OpenWeatherMap for your province. ET₀ is estimated from temperature.</p>
+                            <div class="state-grid" id="weatherGrid">
+                                <div class="state-card"><div class="state-label">Temperature</div><div class="state-value" id="wmTemp">-</div></div>
+                                <div class="state-card"><div class="state-label">Rain (Last 24h)</div><div class="state-value" id="wmRain24">-</div></div>
+                                <div class="state-card"><div class="state-label">Rain (Next 3 days)</div><div class="state-value" id="wmRain3d">-</div></div>
+                                <div class="state-card"><div class="state-label">ET₀ (estimated)</div><div class="state-value" id="wmET0">-</div></div>
+                            </div>
+                            <div id="wmForecastBar" style="margin-top:10px;"></div>
+                        </div>
+                        <div class="wm-section"><h3>AWD Handbook Assessment</h3>
+                            <p class="section-desc">Irrigation advice based on AWD handbook rules and your field observations</p>
+                            <div id="trajectoryViz" class="trajectory-container"><div class="loading-placeholder">Chat with the assistant to build your field state</div></div>
+                        </div>
+                        <div class="wm-section"><h3>AWD Handbook Rules</h3>
+                            <div class="params-grid" id="hydroParams">
+                                <div class="param-item"><span class="param-name">AWD Trigger Depth</span><span class="param-value" id="paramET">15 cm</span></div>
+                                <div class="param-item"><span class="param-name">Refill Target</span><span class="param-value" id="paramPerc">3-5 cm</span></div>
+                                <div class="param-item"><span class="param-name">Soil Type</span><span class="param-value" id="paramFC">-</span></div>
+                                <div class="param-item"><span class="param-name">Current Regime</span><span class="param-value" id="paramKsat">AUTO</span></div>
+                            </div>
+                        </div>
+                        <div class="wm-section"><h3>Data Sources</h3>
+                            <div id="wmProvenance" class="provenance-tags">
+                                <span class="prov-tag handbook">AWD HANDBOOK</span>
+                                <span class="prov-tag observation">FARMER OBSERVATIONS</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Check-In Modal -->
+            <div class="modal" id="checkinModal" style="display:none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Daily Field Check-In</h2>
+                        <button class="modal-close" id="closeCheckinModal">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <form id="checkinForm" class="modal-form">
+                        <div class="assistant-help">
+                            <div class="help-icon">💡</div>
+                            <div class="help-text"><strong>Quick Measurement Guide</strong><p>Choose how you're measuring water today and I'll guide you through it.</p></div>
+                        </div>
+                        <div class="form-field"><label>How are you measuring water?</label>
+                            <div class="radio-group">
+                                <label class="radio-option"><input type="radio" name="measurementMode" value="awd_tube" checked><div class="radio-content"><div class="radio-title">AWD Tube</div><div class="radio-desc">Measure depth below soil surface</div></div></label>
+                                <label class="radio-option"><input type="radio" name="measurementMode" value="standing_water_bucket"><div class="radio-content"><div class="radio-title">Standing Water</div><div class="radio-desc">Visual bucket measurement</div></div></label>
+                                <label class="radio-option"><input type="radio" name="measurementMode" value="qualitative"><div class="radio-content"><div class="radio-title">Visual Only</div><div class="radio-desc">No measurement tool</div></div></label>
+                            </div>
+                        </div>
+                        <div id="awdTubeFields" class="measurement-fields">
+                            <div class="form-field"><label>Water Table Depth (cm below soil surface)</label><input type="number" id="checkinWaterTableDepth" step="0.1" placeholder="e.g., 15.0"><div class="field-hint">Measure from soil surface to water level in tube</div></div>
+                        </div>
+                        <div id="bucketFields" class="measurement-fields" style="display:none;">
+                            <div class="form-field"><label>Standing Water Level</label>
+                                <select id="checkinPondedBucket"><option value="">Select...</option><option value="zero">Zero / Dry soil</option><option value="one_two">1-2 cm (shallow)</option><option value="three_five">3-5 cm (moderate)</option><option value="over_five">Over 5 cm (deep)</option></select>
+                            </div>
+                        </div>
+                        <div class="form-field"><label>Soil Cracks</label>
+                            <div class="button-group">
+                                <button type="button" class="btn-option" data-value="none">None</button>
+                                <button type="button" class="btn-option" data-value="small">Small</button>
+                                <button type="button" class="btn-option active" data-value="visible">Visible</button>
+                                <button type="button" class="btn-option" data-value="deep">Deep</button>
+                            </div>
+                            <input type="hidden" id="checkinSoilCracks" value="visible">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" id="cancelCheckin">Cancel</button>
+                            <button type="submit" class="btn-primary">Get Irrigation Advice</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script src="app.js?v=26"></script>
+</body>
+</html>

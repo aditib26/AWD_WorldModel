@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  rice-assistant:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - RICE_API_KEYS=${RICE_API_KEYS:-}
+      - RICE_AUTH_MODE=${RICE_AUTH_MODE:-optional}
+      - RICE_CORS_ORIGINS=${RICE_CORS_ORIGINS:-*}
+      - RICE_RATE_LIMIT_RPM=${RICE_RATE_LIMIT_RPM:-30}
+    volumes:
+      - rice_data:/app/water_mgmt_data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  rice_data:

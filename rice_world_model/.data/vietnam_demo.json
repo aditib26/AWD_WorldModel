@@ -1,0 +1,20 @@
+{
+  "config": {
+    "technique": "awd",
+    "awd_threshold_cm": 15.0,
+    "refill_target_cm": 0.0,
+    "rain_recharge_efficiency": 0.7
+  },
+  "params": {
+    "dry_down_rate_cm_per_day": 2.0,
+    "dry_down_rate_std": 0.6
+  },
+  "location": {
+    "name": "Can Tho, Vietnam",
+    "latitude": 10.0452,
+    "longitude": 105.7469,
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "observations": [],
+  "saved_at": "2026-02-08T22:30:25"
+}

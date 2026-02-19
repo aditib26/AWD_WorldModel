@@ -1,0 +1,49 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Data & databases
+water_mgmt_data/
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+*.ndjson
+
+# OS
+Thumbs.db
+
+# Nested git repos (deploy separately)
+RA_Backend/
+RA_Frontend/
+
+# Sensitive documents
+Documents for AIRRVie rice farming assistant/
+
+# AWD state cache
+AWD_World_Model/.awd_state/
