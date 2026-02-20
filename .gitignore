@@ -7,6 +7,8 @@
 !requirements.txt
 !.env.example
 !.dockerignore
+!nixpacks.toml
+!Procfile
 !water_mgmt/
 !water_mgmt/**
 

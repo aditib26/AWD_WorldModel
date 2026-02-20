@@ -1,0 +1,2 @@
+[start]
+cmd = "python -m water_mgmt.api"
