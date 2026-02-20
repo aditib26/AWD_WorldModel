@@ -369,11 +369,13 @@ If the farmer's message CONFLICTS with their stored profile:
                 }
             except Exception as e:
                 last_error = e
+                print(f"[LLM] Attempt {attempt+1} failed: {type(e).__name__}: {e}")
                 if attempt < 2:
                     time.sleep(1.5 * (attempt + 1))  # Backoff: 1.5s, 3s
                     continue
         
         # All retries failed
+        print(f"[LLM] All retries failed. Last error: {type(last_error).__name__}: {last_error}")
         return {
             "state_updates": {},
             "state_changed": False,
