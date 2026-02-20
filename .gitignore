@@ -9,6 +9,7 @@
 !.dockerignore
 !nixpacks.toml
 !Procfile
+!handbook_enhanced_v4_english_visuals.json
 !water_mgmt/
 !water_mgmt/**
 
