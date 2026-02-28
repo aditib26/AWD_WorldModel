@@ -76,7 +76,9 @@ app.add_middleware(
 # Initialize components
 storage = SQLiteStorage()
 json_storage = JSONFileStorage()  # Keep for migration
-state_manager = StateManager()
+from .state_observations import ObservationRecorder
+_observer = ObservationRecorder(storage=storage)
+state_manager = StateManager(observer=_observer)
 # Weather adapter (real API with fallback to stub)
 try:
     if WEATHER_API_KEY:
@@ -393,7 +395,7 @@ def unified_chat(request: ChatRequest, current_user: Optional[dict] = Depends(ge
             
             if clean_updates:
                 # Merge extracted state into world model
-                state = state_manager.merge_extracted_data(state, clean_updates)
+                state = state_manager.merge_extracted_data(state, clean_updates, trigger_message=request.message)
                 
                 # Re-run planner with updated state
                 new_advice = planner.plan(state, weather_forecast)
@@ -926,6 +928,63 @@ def _assess_awd_from_handbook(state, awd_config):
         assessment["reason"] += " ⚠️ SENSITIVE STAGE — avoid deep drying, maintain {}-{}cm ponding.".format(refill_min, refill_max)
     
     return assessment
+
+
+# ============================================================================
+# STATE OBSERVATION ENDPOINTS
+# ============================================================================
+
+@app.get("/state-space")
+def get_state_space():
+    """Get the formal state space definition — all variables, types, ranges, units."""
+    from .state_space import state_space_summary
+    return state_space_summary()
+
+
+@app.get("/state/{farm_id}/observations")
+def get_observations(
+    farm_id: str,
+    field_name: Optional[str] = None,
+    source: Optional[str] = None,
+    limit: int = 50,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """Get observation history for a farm — every recorded state change."""
+    farm_id = _sanitize_farm_id(farm_id)
+    _require_farm_access(farm_id, current_user)
+    observations = _observer.get_observations(
+        farm_id=farm_id, field_name=field_name, source=source, limit=limit,
+    )
+    return {"farm_id": farm_id, "count": len(observations), "observations": observations}
+
+
+@app.get("/state/{farm_id}/snapshots")
+def get_snapshots(
+    farm_id: str,
+    limit: int = 20,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """Get state snapshot history — full state at each recorded point in time."""
+    farm_id = _sanitize_farm_id(farm_id)
+    _require_farm_access(farm_id, current_user)
+    snapshots = _observer.get_snapshots(farm_id=farm_id, limit=limit)
+    return {"farm_id": farm_id, "count": len(snapshots), "snapshots": snapshots}
+
+
+@app.get("/state/{farm_id}/timeline/{field_name}")
+def get_field_timeline(
+    farm_id: str,
+    field_name: str,
+    limit: int = 30,
+    current_user: Optional[dict] = Depends(get_current_user),
+):
+    """Get the value timeline for a single state variable."""
+    farm_id = _sanitize_farm_id(farm_id)
+    _require_farm_access(farm_id, current_user)
+    timeline = _observer.get_field_timeline(
+        farm_id=farm_id, field_name=field_name, limit=limit,
+    )
+    return {"farm_id": farm_id, "field_name": field_name, "count": len(timeline), "timeline": timeline}
 
 
 # ============================================================================

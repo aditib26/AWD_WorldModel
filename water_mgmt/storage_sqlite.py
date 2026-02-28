@@ -109,6 +109,36 @@ class SQLiteStorage:
                 );
                 CREATE INDEX IF NOT EXISTS idx_events_farm_type 
                     ON events(farm_id, event_type, created_at DESC);
+                
+                CREATE TABLE IF NOT EXISTS state_observations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    farm_id TEXT NOT NULL,
+                    field_name TEXT NOT NULL,
+                    old_value TEXT,
+                    new_value TEXT,
+                    source TEXT NOT NULL,
+                    confidence REAL NOT NULL DEFAULT 0.5,
+                    trigger_text TEXT,
+                    trigger_type TEXT,
+                    validated INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_obs_farm_field 
+                    ON state_observations(farm_id, field_name, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_obs_farm_time 
+                    ON state_observations(farm_id, created_at DESC);
+                
+                CREATE TABLE IF NOT EXISTS state_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    farm_id TEXT NOT NULL,
+                    state_data JSON NOT NULL,
+                    trigger_text TEXT,
+                    trigger_type TEXT,
+                    observation_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_snapshots_farm 
+                    ON state_snapshots(farm_id, created_at DESC);
             """)
 
     # ========== USERS & OWNERSHIP ==========
@@ -282,6 +312,107 @@ class SQLiteStorage:
             
             rows = conn.execute(query, params).fetchall()
             return [json.loads(row["data"]) for row in rows]
+    
+    # ========== STATE OBSERVATIONS ==========
+    
+    def save_observation(self, obs) -> None:
+        """Persist a single StateObservation."""
+        with self._get_conn() as conn:
+            conn.execute(
+                """INSERT INTO state_observations 
+                   (farm_id, field_name, old_value, new_value, source, 
+                    confidence, trigger_text, trigger_type, validated)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    obs.farm_id,
+                    obs.field_name,
+                    json.dumps(obs.old_value, default=str) if obs.old_value is not None else None,
+                    json.dumps(obs.new_value, default=str) if obs.new_value is not None else None,
+                    obs.source,
+                    obs.confidence,
+                    obs.trigger,
+                    obs.trigger_type,
+                    int(obs.validated),
+                )
+            )
+    
+    def load_observations(
+        self, farm_id: str,
+        field_name: str = None,
+        source: str = None,
+        limit: int = 50,
+    ) -> List[dict]:
+        """Load observation history for a farm."""
+        with self._get_conn() as conn:
+            query = "SELECT * FROM state_observations WHERE farm_id = ?"
+            params: list = [farm_id]
+            if field_name:
+                query += " AND field_name = ?"
+                params.append(field_name)
+            if source:
+                query += " AND source = ?"
+                params.append(source)
+            query += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+            rows = conn.execute(query, params).fetchall()
+            results = []
+            for row in rows:
+                results.append({
+                    "id": row["id"],
+                    "farm_id": row["farm_id"],
+                    "field_name": row["field_name"],
+                    "old_value": json.loads(row["old_value"]) if row["old_value"] else None,
+                    "new_value": json.loads(row["new_value"]) if row["new_value"] else None,
+                    "source": row["source"],
+                    "confidence": row["confidence"],
+                    "trigger": row["trigger_text"],
+                    "trigger_type": row["trigger_type"],
+                    "validated": bool(row["validated"]),
+                    "created_at": row["created_at"],
+                })
+            return results
+    
+    # ========== STATE SNAPSHOTS ==========
+    
+    def save_snapshot(self, snap) -> None:
+        """Persist a full state snapshot."""
+        data_json = json.dumps(snap.state_data, default=str)
+        with self._get_conn() as conn:
+            conn.execute(
+                """INSERT INTO state_snapshots 
+                   (farm_id, state_data, trigger_text, trigger_type, observation_count)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    snap.farm_id,
+                    data_json,
+                    snap.trigger,
+                    snap.trigger_type,
+                    snap.observation_count,
+                )
+            )
+    
+    def load_snapshots(self, farm_id: str, limit: int = 20) -> List[dict]:
+        """Load state snapshot history."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                """SELECT id, farm_id, state_data, trigger_text, trigger_type, 
+                          observation_count, created_at
+                   FROM state_snapshots WHERE farm_id = ? 
+                   ORDER BY created_at DESC LIMIT ?""",
+                (farm_id, limit)
+            ).fetchall()
+            results = []
+            for row in rows:
+                results.append({
+                    "id": row["id"],
+                    "farm_id": row["farm_id"],
+                    "state_data": json.loads(row["state_data"]),
+                    "trigger": row["trigger_text"],
+                    "trigger_type": row["trigger_type"],
+                    "observation_count": row["observation_count"],
+                    "created_at": row["created_at"],
+                })
+            return results
     
     # ========== MIGRATION ==========
     

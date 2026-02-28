@@ -4,10 +4,37 @@ from datetime import date, datetime
 from typing import Dict, Any, Optional
 from .schemas import FarmerProfile, DailyCheckIn, WorldState, FieldProvenance
 from .config import BUCKET_TO_CM, DAS_TO_STAGE
+from .state_observations import ObservationRecorder
 
 
 class StateManager:
     """Manages world state construction and updates"""
+    
+    def __init__(self, observer: Optional[ObservationRecorder] = None):
+        self.observer = observer or ObservationRecorder()
+    
+    def _state_dict(self, state: WorldState) -> Dict[str, Any]:
+        """Extract trackable fields from a WorldState as a flat dict."""
+        return {
+            "das": state.das,
+            "growth_stage": state.growth_stage,
+            "soil_type": state.soil_type,
+            "bund_height_class": state.bund_height_class,
+            "leveled": state.leveled,
+            "ponded_water_cm": state.ponded_water_cm,
+            "water_table_depth_cm": state.water_table_depth_cm,
+            "soil_deficit_index": state.soil_deficit_index,
+            "soil_cracks": state.soil_cracks,
+            "rain_last_24h_mm": state.rain_last_24h_mm,
+            "rain_next_72h_mm": state.rain_next_72h_mm,
+            "et0_next_24h_mm": state.et0_next_24h_mm,
+            "temperature_next_24h_c": state.temperature_next_24h_c,
+            "irrigation_access": state.irrigation_access,
+            "drainage_access": state.drainage_access,
+            "can_irrigate_today": state.can_irrigate_today,
+            "regime": state.regime,
+            "mode": state.mode,
+        }
     
     def build_initial_state(self, profile: FarmerProfile, today: date) -> WorldState:
         """Initialize state from profile"""
@@ -53,11 +80,20 @@ class StateManager:
                 source="derived", last_updated=now, confidence=0.8
             )
         
+        # Record initial state as snapshot
+        self.observer.record_snapshot(
+            farm_id=profile.farm_id,
+            state_data=self._state_dict(state),
+            trigger=f"profile_created:{profile.farm_id}",
+            trigger_type="profile_init",
+        )
+        
         return state
     
     def apply_checkin(self, state: WorldState, checkin: DailyCheckIn) -> WorldState:
         """Merge check-in data into state"""
         
+        before = self._state_dict(state)
         state = state.model_copy(deep=True)
         now = datetime.now()
         
@@ -87,11 +123,34 @@ class StateManager:
             state.rain_last_24h_mm = max(state.rain_last_24h_mm, 20.0)
         
         state.last_updated = now
-        return self.validate_and_cap(state)
+        state = self.validate_and_cap(state)
+        
+        # Record observations for changed fields
+        after = self._state_dict(state)
+        changed = {k: v for k, v in after.items() if before.get(k) != v}
+        if changed:
+            self.observer.record_batch(
+                farm_id=state.farm_id,
+                old_state_dict=before,
+                new_state_dict=after,
+                changed_fields=changed,
+                source="checkin",
+                confidence=0.9,
+                trigger=f"checkin:{checkin.checkin_date.isoformat()}",
+                trigger_type="checkin_form",
+            )
+            self.observer.record_snapshot(
+                farm_id=state.farm_id,
+                state_data=after,
+                trigger=f"checkin:{checkin.checkin_date.isoformat()}",
+                trigger_type="checkin_form",
+            )
+        
+        return state
     
-    def merge_extracted_data(self, state: WorldState, slots: Dict[str, Any]) -> WorldState:
+    def merge_extracted_data(self, state: WorldState, slots: Dict[str, Any], trigger_message: str = None) -> WorldState:
         """Merge LLM-extracted slots into state (alias for apply_chat_slots)"""
-        return self.apply_chat_slots(state, slots)
+        return self.apply_chat_slots(state, slots, trigger_message=trigger_message)
     
     def update_state(self, state: WorldState, profile: FarmerProfile, weather_forecast) -> WorldState:
         """Update state with weather forecast and profile data
@@ -101,6 +160,7 @@ class StateManager:
             profile: Farmer profile
             weather_forecast: Either a WeatherSummary object or list of WeatherSummary objects
         """
+        before = self._state_dict(state)
         state = state.model_copy(deep=True)
         now = datetime.now()
         
@@ -129,6 +189,37 @@ class StateManager:
             state = self.update_das(state, state.state_date, profile.sowing_date)
         
         state.last_updated = now
+        
+        # Record weather observations for changed fields
+        after = self._state_dict(state)
+        changed = {k: v for k, v in after.items() if before.get(k) != v}
+        weather_fields = {"rain_last_24h_mm", "rain_next_72h_mm", "et0_next_24h_mm", "temperature_next_24h_c"}
+        weather_changed = {k: v for k, v in changed.items() if k in weather_fields}
+        other_changed = {k: v for k, v in changed.items() if k not in weather_fields}
+        
+        if weather_changed:
+            self.observer.record_batch(
+                farm_id=state.farm_id,
+                old_state_dict=before,
+                new_state_dict=after,
+                changed_fields=weather_changed,
+                source="weather",
+                confidence=0.8,
+                trigger="weather_api_update",
+                trigger_type="weather_api",
+            )
+        if other_changed:
+            self.observer.record_batch(
+                farm_id=state.farm_id,
+                old_state_dict=before,
+                new_state_dict=after,
+                changed_fields=other_changed,
+                source="derived",
+                confidence=0.95,
+                trigger="das_recalc",
+                trigger_type="das_calc",
+            )
+        
         return state
     
     def initialize_state(self, profile: FarmerProfile, today: Optional[date] = None) -> WorldState:
@@ -137,9 +228,10 @@ class StateManager:
             today = date.today()
         return self.build_initial_state(profile, today)
     
-    def apply_chat_slots(self, state: WorldState, slots: Dict[str, Any]) -> WorldState:
+    def apply_chat_slots(self, state: WorldState, slots: Dict[str, Any], trigger_message: str = None) -> WorldState:
         """Merge LLM-extracted slots into state"""
         
+        before = self._state_dict(state)
         state = state.model_copy(deep=True)
         now = datetime.now()
         
@@ -187,7 +279,30 @@ class StateManager:
             )
         
         state.last_updated = now
-        return self.validate_and_cap(state)
+        state = self.validate_and_cap(state)
+        
+        # Record observations for changed fields
+        after = self._state_dict(state)
+        changed = {k: v for k, v in after.items() if before.get(k) != v}
+        if changed:
+            self.observer.record_batch(
+                farm_id=state.farm_id,
+                old_state_dict=before,
+                new_state_dict=after,
+                changed_fields=changed,
+                source="chat",
+                confidence=0.85,
+                trigger=trigger_message,
+                trigger_type="user_message",
+            )
+            self.observer.record_snapshot(
+                farm_id=state.farm_id,
+                state_data=after,
+                trigger=trigger_message,
+                trigger_type="user_message",
+            )
+        
+        return state
     
     def infer_growth_stage(self, das: int) -> str:
         """Map DAS to approximate growth stage"""

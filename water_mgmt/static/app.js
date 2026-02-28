@@ -710,11 +710,76 @@ async function loadWorldModel() {
         // Display AWD assessment from handbook rules
         displayHandbookAssessment(wm.awd_assessment, rules, state.das);
         
+        // Load and display observation timeline
+        await loadObservationTimeline(currentFarmId);
+        
         console.log('[WM] World model loaded successfully');
         hideLoading();
     } catch (error) {
         hideLoading();
         console.error('Failed to load world model:', error.message, error.stack);
+    }
+}
+
+async function loadObservationTimeline(farmId) {
+    const container = document.getElementById('wmObservations');
+    if (!container) return;
+    
+    try {
+        const data = await apiCall(`/state/${farmId}/observations?limit=20`);
+        const obs = data.observations || [];
+        
+        if (obs.length === 0) {
+            container.innerHTML = '<div style="opacity:0.6;font-size:0.9em;padding:12px;">No observations recorded yet. Chat with the assistant to start building your field state.</div>';
+            return;
+        }
+        
+        const sourceIcons = {
+            'chat': '💬', 'checkin': '📋', 'weather': '🌤️',
+            'derived': '⚙️', 'profile': '👤', 'system': '🔧'
+        };
+        const sourceColors = {
+            'chat': '#10b981', 'checkin': '#3b82f6', 'weather': '#f59e0b',
+            'derived': '#8b5cf6', 'profile': '#6366f1', 'system': '#64748b'
+        };
+        
+        const items = obs.map(o => {
+            const icon = sourceIcons[o.source] || '📝';
+            const color = sourceColors[o.source] || '#64748b';
+            const time = o.created_at ? new Date(o.created_at + 'Z').toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+            const oldVal = o.old_value != null ? o.old_value : '-';
+            const newVal = o.new_value != null ? o.new_value : '-';
+            const field = o.field_name.replace(/_/g, ' ');
+            const conf = o.confidence != null ? `${Math.round(o.confidence * 100)}%` : '';
+            const trigger = o.trigger ? `<div style="opacity:0.6;font-size:0.8em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px;" title="${o.trigger.replace(/"/g, '&quot;')}">${o.trigger}</div>` : '';
+            
+            return `
+                <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-color);">
+                    <div style="flex-shrink:0;width:28px;text-align:center;font-size:1.1em;">${icon}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                            <span style="font-weight:600;text-transform:capitalize;">${field}</span>
+                            <span style="font-size:0.75em;opacity:0.6;">${time}</span>
+                        </div>
+                        <div style="font-size:0.85em;margin-top:2px;">
+                            <span style="opacity:0.5;">${oldVal}</span>
+                            <span style="margin:0 4px;">→</span>
+                            <span style="font-weight:600;color:${color};">${newVal}</span>
+                            ${conf ? `<span style="margin-left:6px;opacity:0.5;font-size:0.85em;">(${conf})</span>` : ''}
+                        </div>
+                        ${trigger}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = `
+            <div style="font-weight:600;margin-bottom:8px;">📊 State Observation Timeline</div>
+            <div style="max-height:300px;overflow-y:auto;">${items}</div>
+        `;
+    } catch (err) {
+        console.error('Failed to load observations:', err);
+        container.innerHTML = '<div style="opacity:0.5;font-size:0.9em;">Could not load observations</div>';
     }
 }
 
