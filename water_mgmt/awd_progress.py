@@ -139,6 +139,105 @@ AWD_PHASES = [
 
 
 # ---------------------------------------------------------------------------
+# Generic Rice Season Phases (for CONTINUOUS, RAINFED, AUTO regimes)
+# ---------------------------------------------------------------------------
+
+GENERIC_PHASES = [
+    {
+        "id": 1,
+        "name": "Germination & Establishment",
+        "short": "Germination",
+        "day_start": 1,
+        "day_end": 10,
+        "icon": "🌱",
+        "color": "#22c55e",
+        "rule": "Keep soil saturated or shallow flooded. Ensure seedlings establish well.",
+        "is_drying": False,
+        "cycle": None,
+    },
+    {
+        "id": 2,
+        "name": "Vegetative Growth",
+        "short": "Vegetative",
+        "day_start": 11,
+        "day_end": 35,
+        "icon": "🌿",
+        "color": "#16a34a",
+        "rule": "Maintain water level per your regime. Apply basal and tillering fertilizer on schedule.",
+        "is_drying": False,
+        "cycle": None,
+    },
+    {
+        "id": 3,
+        "name": "Tillering & Mid-Season",
+        "short": "Tillering",
+        "day_start": 36,
+        "day_end": 55,
+        "icon": "🌿",
+        "color": "#059669",
+        "rule": "Peak tillering period. Monitor for pests and weeds. Manage water to support tiller development.",
+        "is_drying": False,
+        "cycle": None,
+    },
+    {
+        "id": 4,
+        "name": "Panicle Initiation",
+        "short": "Panicle Init",
+        "day_start": 56,
+        "day_end": 65,
+        "icon": "🌾",
+        "color": "#3b82f6",
+        "rule": "Critical stage — ensure adequate water supply. Apply panicle fertilizer.",
+        "is_drying": False,
+        "cycle": None,
+    },
+    {
+        "id": 5,
+        "name": "Flowering & Heading",
+        "short": "Flowering",
+        "day_start": 66,
+        "day_end": 75,
+        "icon": "🌾",
+        "color": "#dc2626",
+        "rule": "SENSITIVE STAGE — do not let field dry. Maintain consistent water to protect grain set.",
+        "is_drying": False,
+        "cycle": None,
+    },
+    {
+        "id": 6,
+        "name": "Grain Filling & Ripening",
+        "short": "Grain Fill",
+        "day_start": 76,
+        "day_end": 100,
+        "icon": "🌾",
+        "color": "#ea580c",
+        "rule": "Maintain moisture for grain development. Gradually reduce water as grains mature.",
+        "is_drying": False,
+        "cycle": None,
+    },
+    {
+        "id": 7,
+        "name": "Pre-Harvest Drainage",
+        "short": "Harvest Prep",
+        "day_start": 101,
+        "day_end": 115,
+        "icon": "🚜",
+        "color": "#78716c",
+        "rule": "Stop irrigation 7–15 days before harvest. Let field dry for machinery access.",
+        "is_drying": True,
+        "cycle": None,
+    },
+]
+
+
+def get_phases_for_regime(regime: str) -> list:
+    """Return the appropriate phase list based on irrigation regime."""
+    if regime and regime.upper() == "AWD":
+        return AWD_PHASES
+    return GENERIC_PHASES
+
+
+# ---------------------------------------------------------------------------
 # Verification Criteria for Certification
 # ---------------------------------------------------------------------------
 
@@ -210,15 +309,16 @@ class AWDProgress(BaseModel):
 # Progress Calculator
 # ---------------------------------------------------------------------------
 
-def get_current_phase(das: Optional[int]) -> Optional[Dict]:
-    """Determine which AWD phase the farmer is currently in."""
+def get_current_phase(das: Optional[int], regime: str = "AWD") -> Optional[Dict]:
+    """Determine which phase the farmer is currently in, based on regime."""
     if das is None:
         return None
-    for phase in AWD_PHASES:
+    phases = get_phases_for_regime(regime)
+    for phase in phases:
         if phase["day_start"] <= das <= phase["day_end"]:
             return phase
     if das > 115:
-        return AWD_PHASES[-1]  # post-harvest
+        return phases[-1]  # post-harvest
     return None
 
 
@@ -228,9 +328,10 @@ def calculate_progress(
     state: Optional[Any] = None,
     observations: Optional[List[Dict]] = None,
     checkins: Optional[List[Any]] = None,
+    regime: str = "AWD",
 ) -> AWDProgress:
     """
-    Calculate AWD progress based on DAS, state, and observation history.
+    Calculate season progress based on DAS, state, and observation history.
     
     Args:
         farm_id: Farm identifier
@@ -238,19 +339,25 @@ def calculate_progress(
         state: Current WorldState (optional)
         observations: State observation history (optional)
         checkins: Recent check-in history (optional)
+        regime: Irrigation regime (AWD, CONTINUOUS, RAINFED, AUTO)
     """
-    progress = AWDProgress(farm_id=farm_id, current_das=das)
+    phases = get_phases_for_regime(regime)
+    progress = AWDProgress(
+        farm_id=farm_id,
+        current_das=das,
+        total_phases=len(phases),
+    )
     
     if das is None:
         return progress
     
     # Determine current phase
-    current_phase = get_current_phase(das)
+    current_phase = get_current_phase(das, regime)
     if current_phase:
         progress.current_phase_id = current_phase["id"]
     
     # Mark completed phases (all phases before current DAS)
-    for phase in AWD_PHASES:
+    for phase in phases:
         if das > phase["day_end"]:
             progress.phases_completed.append(phase["id"])
     
@@ -262,25 +369,25 @@ def calculate_progress(
     else:
         progress.percent_complete = round(min(das / 115.0 * 100, 100.0), 1)
     
-    # Auto-check verification criteria from observations
-    progress.criteria_met = _evaluate_criteria(das, state, observations, checkins)
-    
-    # Count completed drying cycles
-    cycles = 0
-    if progress.criteria_met.get("cycle_1_complete"):
-        cycles += 1
-    if progress.criteria_met.get("cycle_2_complete"):
-        cycles += 1
-    if progress.criteria_met.get("cycle_3_complete"):
-        cycles += 1
-    progress.cycles_completed = cycles
-    
-    # Check certificate eligibility (all 6 criteria met)
-    required = ["tube_installed", "cycle_1_complete", "cycle_2_complete",
-                 "cycle_3_complete", "flowering_flood", "final_drainage"]
-    progress.certificate_eligible = all(
-        progress.criteria_met.get(c, False) for c in required
-    )
+    # AWD-specific: verification criteria and cycle tracking
+    is_awd = regime and regime.upper() == "AWD"
+    if is_awd:
+        progress.criteria_met = _evaluate_criteria(das, state, observations, checkins)
+        
+        cycles = 0
+        if progress.criteria_met.get("cycle_1_complete"):
+            cycles += 1
+        if progress.criteria_met.get("cycle_2_complete"):
+            cycles += 1
+        if progress.criteria_met.get("cycle_3_complete"):
+            cycles += 1
+        progress.cycles_completed = cycles
+        
+        required = ["tube_installed", "cycle_1_complete", "cycle_2_complete",
+                     "cycle_3_complete", "flowering_flood", "final_drainage"]
+        progress.certificate_eligible = all(
+            progress.criteria_met.get(c, False) for c in required
+        )
     
     return progress
 
@@ -379,8 +486,9 @@ def _evaluate_criteria(
     return criteria
 
 
-def get_phase_schedule() -> List[Dict]:
-    """Return the full AWD phase schedule for display."""
+def get_phase_schedule(regime: str = "AWD") -> List[Dict]:
+    """Return the phase schedule for display, based on regime."""
+    phases = get_phases_for_regime(regime)
     return [
         {
             "id": p["id"],
@@ -395,7 +503,7 @@ def get_phase_schedule() -> List[Dict]:
             "is_drying": p["is_drying"],
             "cycle": p["cycle"],
         }
-        for p in AWD_PHASES
+        for p in phases
     ]
 
 

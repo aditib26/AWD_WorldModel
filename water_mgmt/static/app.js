@@ -759,17 +759,43 @@ async function loadAWDProgress(farmId) {
         const prog = data.progress || {};
         const schedule = data.schedule || [];
         const criteria = data.criteria || [];
+        const regime = (data.regime || 'AUTO').toUpperCase();
+        const isAWD = regime === 'AWD';
         
-        renderProgressBar(prog);
-        renderPhaseSchedule(schedule, prog);
-        renderVerificationCriteria(criteria, prog);
-        renderCertificateArea(prog, farmId);
+        // Update modal title and explainer based on regime
+        const modalTitle = document.getElementById('wmModalTitle');
+        const explainer = document.getElementById('wmExplainerText');
+        if (modalTitle) {
+            modalTitle.textContent = isAWD
+                ? '🌾 AWD World Model — 3 Wet-Dry Cycles'
+                : `🌾 Rice Season World Model — ${regime}`;
+        }
+        if (explainer) {
+            explainer.innerHTML = isAWD
+                ? '<strong>Alternate Wetting & Drying (AWD)</strong><p>Your field goes through 10 phases with 3 wet-dry cycles. Complete all cycles to earn your AWD Certificate — reducing water use and emissions while maintaining yield.</p>'
+                : `<strong>${regime} Water Management</strong><p>Track your rice season through ${schedule.length} growth phases. Your current phase and progress are shown below.</p>`;
+        }
+        
+        renderProgressBar(prog, regime);
+        renderPhaseSchedule(schedule, prog, regime);
+        
+        // AWD-specific sections
+        const verifySection = document.getElementById('awdVerification')?.closest('.wm-section');
+        const certSection = document.getElementById('awdCertificateSection');
+        if (isAWD) {
+            if (verifySection) verifySection.style.display = '';
+            renderVerificationCriteria(criteria, prog);
+            renderCertificateArea(prog, farmId);
+        } else {
+            if (verifySection) verifySection.style.display = 'none';
+            if (certSection) certSection.style.display = 'none';
+        }
     } catch (err) {
         console.error('Failed to load AWD progress:', err);
     }
 }
 
-function renderProgressBar(prog) {
+function renderProgressBar(prog, regime) {
     const container = document.getElementById('awdProgressContainer');
     if (!container) return;
     
@@ -777,24 +803,48 @@ function renderProgressBar(prog) {
     const das = prog.current_das;
     const cycles = prog.cycles_completed || 0;
     const eligible = prog.certificate_eligible;
+    const isAWD = regime === 'AWD';
     
-    // Cycle milestone positions on the 115-day timeline
-    const milestones = [
-        { day: 20,  label: 'C1', done: cycles >= 1 },
-        { day: 34,  label: 'C2', done: cycles >= 2 },
-        { day: 56,  label: 'C3', done: cycles >= 3 },
-    ];
+    // AWD: show cycle milestones; Generic: show growth stage milestones
+    let milestonesHTML = '';
+    if (isAWD) {
+        const milestones = [
+            { day: 20,  label: 'C1', done: cycles >= 1 },
+            { day: 34,  label: 'C2', done: cycles >= 2 },
+            { day: 56,  label: 'C3', done: cycles >= 3 },
+        ];
+        milestonesHTML = milestones.map(m => {
+            const pos = (m.day / 115 * 100).toFixed(1);
+            return `<div class="bar-milestone ${m.done ? 'done' : ''}" style="left:${pos}%">
+                <div class="milestone-dot">${m.done ? '✓' : ''}</div>
+                <div class="milestone-label">${m.label}</div>
+            </div>`;
+        }).join('');
+    } else {
+        const milestones = [
+            { day: 35,  label: 'Veg', done: das > 35 },
+            { day: 65,  label: 'PI', done: das > 65 },
+            { day: 100, label: 'Fill', done: das > 100 },
+        ];
+        milestonesHTML = milestones.map(m => {
+            const pos = (m.day / 115 * 100).toFixed(1);
+            return `<div class="bar-milestone ${m.done ? 'done' : ''}" style="left:${pos}%">
+                <div class="milestone-dot">${m.done ? '✓' : ''}</div>
+                <div class="milestone-label">${m.label}</div>
+            </div>`;
+        }).join('');
+    }
     
-    const milestonesHTML = milestones.map(m => {
-        const pos = (m.day / 115 * 100).toFixed(1);
-        return `<div class="bar-milestone ${m.done ? 'done' : ''}" style="left:${pos}%">
-            <div class="milestone-dot">${m.done ? '✓' : ''}</div>
-            <div class="milestone-label">${m.label}</div>
-        </div>`;
-    }).join('');
-    
-    // Cursor position
     const cursorPos = Math.min(pct, 100).toFixed(1);
+    
+    // Third stat: AWD shows cycles, others show regime name
+    const thirdStat = isAWD
+        ? `<div class="awd-stat"><div class="awd-stat-value">${cycles}/3</div><div class="awd-stat-label">Cycles</div></div>`
+        : `<div class="awd-stat"><div class="awd-stat-value">${regime}</div><div class="awd-stat-label">Regime</div></div>`;
+    
+    const certStat = (isAWD && eligible)
+        ? '<div class="awd-stat cert-ready"><div class="awd-stat-value">🏆</div><div class="awd-stat-label">Ready!</div></div>'
+        : '';
     
     container.innerHTML = `
         <div class="awd-stats-row">
@@ -806,11 +856,8 @@ function renderProgressBar(prog) {
                 <div class="awd-stat-value">Day ${das ?? '—'}</div>
                 <div class="awd-stat-label">of ~115</div>
             </div>
-            <div class="awd-stat">
-                <div class="awd-stat-value">${cycles}/3</div>
-                <div class="awd-stat-label">Cycles</div>
-            </div>
-            ${eligible ? '<div class="awd-stat cert-ready"><div class="awd-stat-value">🏆</div><div class="awd-stat-label">Ready!</div></div>' : ''}
+            ${thirdStat}
+            ${certStat}
         </div>
         <div class="awd-track-area">
             <div class="awd-track">
@@ -827,12 +874,27 @@ function renderProgressBar(prog) {
     `;
 }
 
-function renderPhaseSchedule(schedule, prog) {
+function renderPhaseSchedule(schedule, prog, regime) {
     const container = document.getElementById('awdPhaseSchedule');
     if (!container) return;
     
+    const isAWD = regime === 'AWD';
     const das = prog.current_das;
     const completed = prog.phases_completed || [];
+    
+    // Update section heading based on regime
+    const heading = container.closest('.wm-section')?.querySelector('h3');
+    if (heading) {
+        heading.textContent = isAWD
+            ? '🗓️ 10-Phase AWD Schedule'
+            : `🗓️ ${schedule.length}-Phase Rice Season`;
+    }
+    const desc = container.closest('.wm-section')?.querySelector('.section-desc');
+    if (desc) {
+        desc.textContent = isAWD
+            ? 'Three wet-dry cycles highlighted in amber. Your current phase is highlighted.'
+            : `Season phases for ${regime} water management. Your current phase is highlighted.`;
+    }
     
     const phaseCards = schedule.map(p => {
         const isCurrent = p.id === prog.current_phase_id;

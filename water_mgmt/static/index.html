@@ -207,7 +207,7 @@
             <div class="modal modal-lg" id="worldModelModal" style="display:none;">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h2>🌾 AWD World Model — 3 Wet-Dry Cycles</h2>
+                        <h2 id="wmModalTitle">🌾 Rice Season World Model</h2>
                         <button class="modal-close" id="closeWorldModelModal">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
@@ -215,7 +215,7 @@
                     <div class="modal-body">
                         <div class="world-model-explainer">
                             <div class="explainer-icon">🌾</div>
-                            <div class="explainer-text">
+                            <div class="explainer-text" id="wmExplainerText">
                                 <strong>Alternate Wetting & Drying (AWD)</strong>
                                 <p>Your field goes through 10 phases with 3 wet-dry cycles. Complete all cycles to earn your AWD Certificate — reducing water use and emissions while maintaining yield.</p>
                             </div>
@@ -223,7 +223,7 @@
 
                         <!-- AWD Progress Bar -->
                         <div class="wm-section">
-                            <h3>📊 AWD Season Progress</h3>
+                            <h3 id="wmProgressTitle">📊 Season Progress</h3>
                             <div id="awdProgressContainer" class="awd-progress-container">
                                 <div class="loading-placeholder">Loading AWD progress...</div>
                             </div>

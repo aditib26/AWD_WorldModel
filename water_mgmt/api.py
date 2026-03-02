@@ -959,7 +959,7 @@ def _assess_awd_from_handbook(state, awd_config):
 
 @app.get("/awd-progress/{farm_id}")
 def get_awd_progress(farm_id: str, current_user: Optional[dict] = Depends(get_current_user)):
-    """Get AWD progress: phase schedule, current phase, verification criteria, certificate eligibility."""
+    """Get season progress: phase schedule, current phase, verification criteria (regime-aware)."""
     from .awd_progress import calculate_progress, get_phase_schedule, get_verification_criteria
     farm_id = _sanitize_farm_id(farm_id)
     _require_farm_access(farm_id, current_user)
@@ -973,6 +973,9 @@ def get_awd_progress(farm_id: str, current_user: Optional[dict] = Depends(get_cu
         state = state_manager.initialize_state(profile)
     state = _refresh_time_fields(state, profile)
     
+    regime = state.regime or "AUTO"
+    is_awd = regime.upper() == "AWD"
+    
     # Get observation + checkin history for verification
     observations = _observer.get_observations(farm_id=farm_id, limit=200)
     checkins = []
@@ -985,21 +988,28 @@ def get_awd_progress(farm_id: str, current_user: Optional[dict] = Depends(get_cu
         state=state,
         observations=observations,
         checkins=checkins,
+        regime=regime,
     )
     
-    return {
+    result = {
         "progress": progress.model_dump(mode='json'),
-        "schedule": get_phase_schedule(),
-        "criteria": get_verification_criteria(),
+        "schedule": get_phase_schedule(regime),
+        "regime": regime,
         "state": {
             "das": state.das,
             "growth_stage": state.growth_stage,
             "ponded_water_cm": state.ponded_water_cm,
             "water_table_depth_cm": state.water_table_depth_cm,
             "soil_cracks": state.soil_cracks,
-            "regime": state.regime,
+            "regime": regime,
         },
     }
+    
+    # Only include AWD-specific data for AWD farms
+    if is_awd:
+        result["criteria"] = get_verification_criteria()
+    
+    return result
 
 
 @app.get("/awd-certificate/{farm_id}")
