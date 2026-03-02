@@ -777,69 +777,53 @@ function renderProgressBar(prog) {
     const das = prog.current_das;
     const cycles = prog.cycles_completed || 0;
     const eligible = prog.certificate_eligible;
-    const completed = prog.phases_completed || [];
-    const currentId = prog.current_phase_id;
     
-    // Segmented bar: each phase is a proportional colored segment
-    // active = saturated color, future = pastel tint so emojis stay crisp
-    const segments = [
-        { id: 1, label: '🌱', days: 7,  active: '#22c55e', faded: '#bbf7d0', name: 'Germination' },
-        { id: 2, label: '🌿', days: 12, active: '#16a34a', faded: '#bbf7d0', name: 'Early Veg' },
-        { id: 3, label: '💨', days: 9,  active: '#f59e0b', faded: '#fef3c7', name: 'Cycle 1' },
-        { id: 4, label: '💧', days: 5,  active: '#3b82f6', faded: '#bfdbfe', name: 'Re-flood' },
-        { id: 5, label: '💨', days: 12, active: '#f59e0b', faded: '#fef3c7', name: 'Cycle 2' },
-        { id: 6, label: '💧', days: 10, active: '#3b82f6', faded: '#bfdbfe', name: 'Panicle' },
-        { id: 7, label: '💨', days: 5,  active: '#f59e0b', faded: '#fef3c7', name: 'Cycle 3' },
-        { id: 8, label: '🌾', days: 10, active: '#dc2626', faded: '#fecaca', name: 'Flowering' },
-        { id: 9, label: '🌾', days: 30, active: '#ea580c', faded: '#fed7aa', name: 'Grain Fill' },
-        { id: 10,label: '🚜', days: 15, active: '#78716c', faded: '#d6d3d1', name: 'Harvest' },
+    // Cycle milestone positions on the 115-day timeline
+    const milestones = [
+        { day: 20,  label: 'C1', done: cycles >= 1 },
+        { day: 34,  label: 'C2', done: cycles >= 2 },
+        { day: 56,  label: 'C3', done: cycles >= 3 },
     ];
-    const totalDays = segments.reduce((s, p) => s + p.days, 0);
     
-    const segHTML = segments.map(seg => {
-        const widthPct = (seg.days / totalDays * 100).toFixed(2);
-        const isDone = completed.includes(seg.id);
-        const isCurrent = seg.id === currentId;
-        const bg = (isDone || isCurrent) ? seg.active : seg.faded;
-        const border = isCurrent ? '2px solid var(--text-primary)' : 'none';
-        const glow = isCurrent ? 'box-shadow: 0 0 0 3px rgba(16,163,127,0.35);' : '';
-        return `<div class="seg-block" style="width:${widthPct}%;background:${bg};border:${border};${glow}" title="${seg.name} (${seg.label})">
-            <span class="seg-label">${seg.label}</span>
+    const milestonesHTML = milestones.map(m => {
+        const pos = (m.day / 115 * 100).toFixed(1);
+        return `<div class="bar-milestone ${m.done ? 'done' : ''}" style="left:${pos}%">
+            <div class="milestone-dot">${m.done ? '✓' : ''}</div>
+            <div class="milestone-label">${m.label}</div>
         </div>`;
     }).join('');
     
-    // Cycle badges
-    const cycleHTML = [1,2,3].map(c => {
-        const done = cycles >= c;
-        return `<div class="awd-cycle-badge ${done ? 'done' : ''}">
-            <span class="cycle-icon">${done ? '✅' : '⬜'}</span>
-            <span class="cycle-label">Cycle ${c}</span>
-        </div>`;
-    }).join('');
+    // Cursor position
+    const cursorPos = Math.min(pct, 100).toFixed(1);
     
     container.innerHTML = `
-        <div class="awd-progress-header">
-            <div class="awd-progress-pct">
-                <span class="pct-number">${Math.round(pct)}%</span>
-                <span class="pct-label">SEASON PROGRESS</span>
+        <div class="awd-stats-row">
+            <div class="awd-stat">
+                <div class="awd-stat-value">${Math.round(pct)}%</div>
+                <div class="awd-stat-label">Complete</div>
             </div>
-            <div class="awd-progress-das">
-                ${das != null ? `<span class="das-big">Day ${das}</span><span class="das-label">of ~115</span>` : '<span class="das-big">—</span>'}
+            <div class="awd-stat">
+                <div class="awd-stat-value">Day ${das ?? '—'}</div>
+                <div class="awd-stat-label">of ~115</div>
             </div>
-            <div class="awd-progress-cert">
-                ${eligible 
-                    ? '<span class="cert-badge eligible">🏆 CERTIFICATE READY</span>' 
-                    : `<span class="cert-badge pending">${cycles}/3 cycles</span>`}
+            <div class="awd-stat">
+                <div class="awd-stat-value">${cycles}/3</div>
+                <div class="awd-stat-label">Cycles</div>
+            </div>
+            ${eligible ? '<div class="awd-stat cert-ready"><div class="awd-stat-value">🏆</div><div class="awd-stat-label">Ready!</div></div>' : ''}
+        </div>
+        <div class="awd-track-area">
+            <div class="awd-track">
+                <div class="awd-track-fill" style="width:${pct}%"></div>
+                <div class="awd-track-cursor" style="left:${cursorPos}%"></div>
+                ${milestonesHTML}
+            </div>
+            <div class="awd-track-labels">
+                <span>Day 1</span>
+                <span>Day 60</span>
+                <span>Day 115</span>
             </div>
         </div>
-        <div class="seg-bar">${segHTML}</div>
-        <div class="seg-legend">
-            <span class="seg-leg-item"><span class="seg-dot" style="background:#22c55e;"></span> Flood/Grow</span>
-            <span class="seg-leg-item"><span class="seg-dot" style="background:#f59e0b;"></span> Dry Cycle</span>
-            <span class="seg-leg-item"><span class="seg-dot" style="background:#dc2626;"></span> Sensitive</span>
-            <span class="seg-leg-item"><span class="seg-dot" style="background:#78716c;"></span> Harvest</span>
-        </div>
-        <div class="awd-cycle-row">${cycleHTML}</div>
     `;
 }
 
