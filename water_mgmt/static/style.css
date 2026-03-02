@@ -1555,9 +1555,9 @@ body {
 .seg-bar {
     display: flex;
     gap: 3px;
-    height: 40px;
+    height: 48px;
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 10px;
 }
 
@@ -1565,17 +1565,19 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
-    transition: opacity 0.3s, box-shadow 0.3s;
+    border-radius: 8px;
+    transition: background 0.3s, box-shadow 0.3s;
     cursor: default;
     position: relative;
     min-width: 0;
+    overflow: hidden;
 }
 
 .seg-label {
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1;
     pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
 }
 
 .seg-legend {

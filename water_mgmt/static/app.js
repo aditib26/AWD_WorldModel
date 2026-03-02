@@ -781,17 +781,18 @@ function renderProgressBar(prog) {
     const currentId = prog.current_phase_id;
     
     // Segmented bar: each phase is a proportional colored segment
+    // active = saturated color, future = pastel tint so emojis stay crisp
     const segments = [
-        { id: 1, label: '🌱', days: 7,  color: '#22c55e', name: 'Germination' },
-        { id: 2, label: '🌿', days: 12, color: '#16a34a', name: 'Early Veg' },
-        { id: 3, label: '💨', days: 9,  color: '#f59e0b', name: 'Cycle 1' },
-        { id: 4, label: '💧', days: 5,  color: '#3b82f6', name: 'Re-flood' },
-        { id: 5, label: '💨', days: 12, color: '#f59e0b', name: 'Cycle 2' },
-        { id: 6, label: '💧', days: 10, color: '#3b82f6', name: 'Panicle' },
-        { id: 7, label: '💨', days: 5,  color: '#f59e0b', name: 'Cycle 3' },
-        { id: 8, label: '🌾', days: 10, color: '#dc2626', name: 'Flowering' },
-        { id: 9, label: '🌾', days: 30, color: '#ea580c', name: 'Grain Fill' },
-        { id: 10,label: '🚜', days: 15, color: '#78716c', name: 'Harvest' },
+        { id: 1, label: '🌱', days: 7,  active: '#22c55e', faded: '#bbf7d0', name: 'Germination' },
+        { id: 2, label: '🌿', days: 12, active: '#16a34a', faded: '#bbf7d0', name: 'Early Veg' },
+        { id: 3, label: '💨', days: 9,  active: '#f59e0b', faded: '#fef3c7', name: 'Cycle 1' },
+        { id: 4, label: '💧', days: 5,  active: '#3b82f6', faded: '#bfdbfe', name: 'Re-flood' },
+        { id: 5, label: '💨', days: 12, active: '#f59e0b', faded: '#fef3c7', name: 'Cycle 2' },
+        { id: 6, label: '💧', days: 10, active: '#3b82f6', faded: '#bfdbfe', name: 'Panicle' },
+        { id: 7, label: '💨', days: 5,  active: '#f59e0b', faded: '#fef3c7', name: 'Cycle 3' },
+        { id: 8, label: '🌾', days: 10, active: '#dc2626', faded: '#fecaca', name: 'Flowering' },
+        { id: 9, label: '🌾', days: 30, active: '#ea580c', faded: '#fed7aa', name: 'Grain Fill' },
+        { id: 10,label: '🚜', days: 15, active: '#78716c', faded: '#d6d3d1', name: 'Harvest' },
     ];
     const totalDays = segments.reduce((s, p) => s + p.days, 0);
     
@@ -799,10 +800,10 @@ function renderProgressBar(prog) {
         const widthPct = (seg.days / totalDays * 100).toFixed(2);
         const isDone = completed.includes(seg.id);
         const isCurrent = seg.id === currentId;
-        const opacity = isDone ? 1 : isCurrent ? 1 : 0.3;
+        const bg = (isDone || isCurrent) ? seg.active : seg.faded;
         const border = isCurrent ? '2px solid var(--text-primary)' : 'none';
-        const glow = isCurrent ? 'box-shadow: 0 0 0 2px rgba(16,163,127,0.4);' : '';
-        return `<div class="seg-block" style="width:${widthPct}%;background:${seg.color};opacity:${opacity};border:${border};${glow}" title="${seg.name} (${seg.label})">
+        const glow = isCurrent ? 'box-shadow: 0 0 0 3px rgba(16,163,127,0.35);' : '';
+        return `<div class="seg-block" style="width:${widthPct}%;background:${bg};border:${border};${glow}" title="${seg.name} (${seg.label})">
             <span class="seg-label">${seg.label}</span>
         </div>`;
     }).join('');
