@@ -744,13 +744,38 @@ function renderProgressBar(prog) {
     const das = prog.current_das;
     const cycles = prog.cycles_completed || 0;
     const eligible = prog.certificate_eligible;
+    const completed = prog.phases_completed || [];
+    const currentId = prog.current_phase_id;
     
-    // Color based on progress
-    let barColor = '#10a37f';
-    if (pct >= 100) barColor = eligible ? '#16a34a' : '#f59e0b';
+    // Segmented bar: each phase is a proportional colored segment
+    const segments = [
+        { id: 1, label: '🌱', days: 7,  color: '#22c55e', name: 'Germination' },
+        { id: 2, label: '🌿', days: 12, color: '#16a34a', name: 'Early Veg' },
+        { id: 3, label: '💨', days: 9,  color: '#f59e0b', name: 'Cycle 1' },
+        { id: 4, label: '💧', days: 5,  color: '#3b82f6', name: 'Re-flood' },
+        { id: 5, label: '💨', days: 12, color: '#f59e0b', name: 'Cycle 2' },
+        { id: 6, label: '💧', days: 10, color: '#3b82f6', name: 'Panicle' },
+        { id: 7, label: '💨', days: 5,  color: '#f59e0b', name: 'Cycle 3' },
+        { id: 8, label: '🌾', days: 10, color: '#dc2626', name: 'Flowering' },
+        { id: 9, label: '🌾', days: 30, color: '#ea580c', name: 'Grain Fill' },
+        { id: 10,label: '🚜', days: 15, color: '#78716c', name: 'Harvest' },
+    ];
+    const totalDays = segments.reduce((s, p) => s + p.days, 0);
     
-    // Cycle indicators
-    const cycleIcons = [1,2,3].map(c => {
+    const segHTML = segments.map(seg => {
+        const widthPct = (seg.days / totalDays * 100).toFixed(2);
+        const isDone = completed.includes(seg.id);
+        const isCurrent = seg.id === currentId;
+        const opacity = isDone ? 1 : isCurrent ? 1 : 0.3;
+        const border = isCurrent ? '2px solid var(--text-primary)' : 'none';
+        const glow = isCurrent ? 'box-shadow: 0 0 0 2px rgba(16,163,127,0.4);' : '';
+        return `<div class="seg-block" style="width:${widthPct}%;background:${seg.color};opacity:${opacity};border:${border};${glow}" title="${seg.name} (${seg.label})">
+            <span class="seg-label">${seg.label}</span>
+        </div>`;
+    }).join('');
+    
+    // Cycle badges
+    const cycleHTML = [1,2,3].map(c => {
         const done = cycles >= c;
         return `<div class="awd-cycle-badge ${done ? 'done' : ''}">
             <span class="cycle-icon">${done ? '✅' : '⬜'}</span>
@@ -758,47 +783,29 @@ function renderProgressBar(prog) {
         </div>`;
     }).join('');
     
-    // Phase markers on progress bar
-    const markers = [
-        { pos: 20/115*100, label: 'C1', color: '#f59e0b' },
-        { pos: 34/115*100, label: 'C2', color: '#f59e0b' },
-        { pos: 56/115*100, label: 'C3', color: '#f59e0b' },
-        { pos: 60/115*100, label: '🌾', color: '#dc2626' },
-        { pos: 100/115*100, label: '🚜', color: '#78716c' },
-    ];
-    const markerHTML = markers.map(m => 
-        `<div class="awd-bar-marker" style="left:${m.pos}%" title="${m.label}">
-            <div class="marker-line" style="background:${m.color};"></div>
-            <div class="marker-label" style="color:${m.color};">${m.label}</div>
-        </div>`
-    ).join('');
-    
     container.innerHTML = `
         <div class="awd-progress-header">
             <div class="awd-progress-pct">
                 <span class="pct-number">${Math.round(pct)}%</span>
-                <span class="pct-label">Season Progress</span>
+                <span class="pct-label">SEASON PROGRESS</span>
             </div>
             <div class="awd-progress-das">
-                ${das != null ? `<span class="das-big">Day ${das}</span><span class="das-label">of ~115</span>` : '<span class="das-big">-</span>'}
+                ${das != null ? `<span class="das-big">Day ${das}</span><span class="das-label">of ~115</span>` : '<span class="das-big">—</span>'}
             </div>
             <div class="awd-progress-cert">
                 ${eligible 
                     ? '<span class="cert-badge eligible">🏆 CERTIFICATE READY</span>' 
-                    : `<span class="cert-badge pending">${cycles}/3 cycles done</span>`}
+                    : `<span class="cert-badge pending">${cycles}/3 cycles</span>`}
             </div>
         </div>
-        <div class="awd-bar-wrapper">
-            <div class="awd-bar-track">
-                <div class="awd-bar-fill" style="width:${pct}%;background:${barColor};"></div>
-                <div class="awd-bar-cursor" style="left:${Math.min(pct, 100)}%;"></div>
-                ${markerHTML}
-            </div>
-            <div class="awd-bar-labels">
-                <span>Day 1</span><span>Day 30</span><span>Day 60</span><span>Day 90</span><span>Day 115</span>
-            </div>
+        <div class="seg-bar">${segHTML}</div>
+        <div class="seg-legend">
+            <span class="seg-leg-item"><span class="seg-dot" style="background:#22c55e;"></span> Flood/Grow</span>
+            <span class="seg-leg-item"><span class="seg-dot" style="background:#f59e0b;"></span> Dry Cycle</span>
+            <span class="seg-leg-item"><span class="seg-dot" style="background:#dc2626;"></span> Sensitive</span>
+            <span class="seg-leg-item"><span class="seg-dot" style="background:#78716c;"></span> Harvest</span>
         </div>
-        <div class="awd-cycle-row">${cycleIcons}</div>
+        <div class="awd-cycle-row">${cycleHTML}</div>
     `;
 }
 
@@ -822,17 +829,16 @@ function renderPhaseSchedule(schedule, prog) {
         let cycleTag = '';
         if (p.cycle) cycleTag = `<span class="phase-cycle-tag">CYCLE ${p.cycle}</span>`;
         
+        const statusIcon = isDone ? '✅' : isCurrent ? `<span class="phase-current-pip"></span>` : `<span class="phase-num-text">${p.id}</span>`;
         return `
         <div class="awd-phase-card ${statusClass} ${isDrying ? 'phase-drying' : ''}">
-            <div class="phase-icon-col">
-                <span class="phase-num">${isDone ? '✅' : isCurrent ? '▶' : p.id}</span>
-                <span class="phase-emoji">${p.icon}</span>
-            </div>
+            <div class="phase-icon-col">${statusIcon}</div>
             <div class="phase-info-col">
                 <div class="phase-name-row">
+                    <span class="phase-emoji-inline">${p.icon}</span>
                     <span class="phase-name">${p.name}</span>
                     ${cycleTag}
-                    ${isCurrent ? '<span class="phase-here-tag">YOU ARE HERE</span>' : ''}
+                    ${isCurrent ? '<span class="phase-here-tag">NOW</span>' : ''}
                 </div>
                 <div class="phase-days">${p.day_range}</div>
                 <div class="phase-rule">${p.rule}</div>
