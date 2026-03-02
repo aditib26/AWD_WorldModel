@@ -290,7 +290,7 @@ async function openFarm(farmId) {
         statusDas.textContent = state?.das ? `${state.das} DAS` : 'New';
 
         saveFarmLocally(farmId);
-        addFarmToSidebar(farmId);
+        await loadSidebarFarms(farmId);
         hideLoading();
     } catch (error) {
         hideLoading();
@@ -320,6 +320,34 @@ function addFarmToSidebar(farmId) {
     });
     
     farmList.prepend(farmItem);
+}
+
+async function loadSidebarFarms(activeFarmId) {
+    const farmList = document.getElementById('farmList');
+    if (!farmList) return;
+    
+    let farms = [];
+    try {
+        const res = await apiCall('/farms');
+        farms = res.farms || [];
+    } catch (e) {
+        farms = JSON.parse(localStorage.getItem('rice_farms_' + authUserEmail) || '[]');
+    }
+    
+    // Ensure current farm is in the list
+    if (activeFarmId && !farms.includes(activeFarmId)) {
+        farms.unshift(activeFarmId);
+    }
+    
+    farmList.innerHTML = '';
+    farms.forEach(fid => {
+        const item = document.createElement('div');
+        item.className = 'farm-item' + (fid === activeFarmId ? ' active' : '');
+        item.dataset.farm = fid;
+        item.textContent = fid;
+        item.addEventListener('click', () => openFarm(fid));
+        farmList.appendChild(item);
+    });
 }
 
 // Chat Input

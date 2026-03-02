@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rice Assistant</title>
-    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="style.css?v=28">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -342,12 +342,12 @@
                         </div>
                         <div class="form-field"><label>Soil Cracks</label>
                             <div class="button-group">
-                                <button type="button" class="btn-option" data-value="none">None</button>
+                                <button type="button" class="btn-option active" data-value="none">None</button>
                                 <button type="button" class="btn-option" data-value="small">Small</button>
-                                <button type="button" class="btn-option active" data-value="visible">Visible</button>
+                                <button type="button" class="btn-option" data-value="visible">Visible</button>
                                 <button type="button" class="btn-option" data-value="deep">Deep</button>
                             </div>
-                            <input type="hidden" id="checkinSoilCracks" value="visible">
+                            <input type="hidden" id="checkinSoilCracks" value="none">
                         </div>
                         <div class="modal-actions">
                             <button type="button" class="btn-secondary" id="cancelCheckin">Cancel</button>
@@ -364,6 +364,6 @@
         <div class="loading-spinner"></div>
     </div>
 
-    <script src="app.js?v=26"></script>
+    <script src="app.js?v=28"></script>
 </body>
 </html>
