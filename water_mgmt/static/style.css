@@ -1073,6 +1073,10 @@ body {
     gap: 16px;
 }
 
+#weatherGrid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
 .state-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
