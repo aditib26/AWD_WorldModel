@@ -608,6 +608,11 @@ closeWorldModelModal.addEventListener('click', () => {
     worldModelModal.style.display = 'none';
 });
 
+// Certificate modal
+document.getElementById('closeCertModal').addEventListener('click', () => {
+    document.getElementById('certModal').style.display = 'none';
+});
+
 async function loadWorldModel() {
     if (!currentFarmId) return;
     
@@ -615,18 +620,16 @@ async function loadWorldModel() {
     try {
         console.log('[WM] Fetching world model for', currentFarmId);
         const wm = await apiCall(`/worldmodel/${currentFarmId}`);
-        console.log('[WM] Got response, keys:', Object.keys(wm));
         
         const state = wm.state || {};
         const rules = wm.awd_rules || {};
         const prov = state.field_provenance || {};
         
-        // Helper: only show a value if it has provenance (was explicitly reported)
         function reported(field, val, fallback = 'Not reported') {
             return prov[field] ? val : fallback;
         }
         
-        // Update state display (tracked from conversations)
+        // Update state cards
         const wmDas = document.getElementById('wmDas');
         const wmStage = document.getElementById('wmStage');
         const wmPonded = document.getElementById('wmPonded');
@@ -639,23 +642,22 @@ async function loadWorldModel() {
         if (wmPonded) wmPonded.textContent = reported('ponded_water_cm',
             state.ponded_water_cm != null ? `${Number(state.ponded_water_cm).toFixed(1)} cm` : '- cm', '- cm');
         if (wmWaterTable) wmWaterTable.textContent = reported('water_table_depth_cm',
-            state.water_table_depth_cm != null ? `${Number(state.water_table_depth_cm).toFixed(1)} cm below surface` : 'Not measured', 'Not measured');
+            state.water_table_depth_cm != null ? `${Number(state.water_table_depth_cm).toFixed(1)} cm below` : 'Not measured', 'Not measured');
         if (wmSoilMoisture) wmSoilMoisture.textContent = reported('soil_cracks',
             (state.soil_cracks && state.soil_cracks !== 'unknown') ? state.soil_cracks : 'Not reported');
         if (wmRegime) wmRegime.textContent = state.regime || 'AUTO';
         
-        // Update handbook params (real AWD rules from handbook)
+        // Handbook params
         const paramET = document.getElementById('paramET');
         const paramPerc = document.getElementById('paramPerc');
         const paramFC = document.getElementById('paramFC');
         const paramKsat = document.getElementById('paramKsat');
-        
         if (paramET) paramET.textContent = `${rules.trigger_depth_cm || 15} cm`;
         if (paramPerc) paramPerc.textContent = `${rules.refill_min_cm || 3}-${rules.refill_max_cm || 5} cm`;
         if (paramFC) paramFC.textContent = state.soil_type || 'unknown';
         if (paramKsat) paramKsat.textContent = state.regime || 'AUTO';
         
-        // Populate live weather
+        // Weather
         const wx = wm.weather || {};
         const wmTemp = document.getElementById('wmTemp');
         const wmRain24 = document.getElementById('wmRain24');
@@ -670,24 +672,16 @@ async function loadWorldModel() {
         }
         if (wmET0) wmET0.textContent = wx.et0_mm_day != null ? `${wx.et0_mm_day} mm/day` : '-';
         
-        // 5-day mini forecast bar
         const forecastBar = document.getElementById('wmForecastBar');
         if (forecastBar && wx.daily_forecast && wx.daily_forecast.length > 0) {
-            forecastBar.innerHTML = `
-                <div style="display:flex;gap:6px;justify-content:space-between;">
-                    ${wx.daily_forecast.map(d => `
-                        <div style="flex:1;text-align:center;padding:6px 4px;background:var(--bg-tertiary);border-radius:6px;font-size:0.8em;">
-                            <div style="opacity:0.7;">Day ${d.day}</div>
-                            <div style="font-weight:600;">${d.rain_mm > 0 ? '🌧️' : '☀️'}</div>
-                            <div>${d.rain_mm}mm</div>
-                            <div style="opacity:0.7;">${d.temp_c || '-'}°</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            forecastBar.innerHTML = `<div style="display:flex;gap:6px;justify-content:space-between;">
+                ${wx.daily_forecast.map(d => `<div style="flex:1;text-align:center;padding:6px 4px;background:var(--bg-tertiary);border-radius:6px;font-size:0.8em;">
+                    <div style="opacity:0.7;">Day ${d.day}</div><div style="font-weight:600;">${d.rain_mm > 0 ? '🌧️' : '☀️'}</div>
+                    <div>${d.rain_mm}mm</div><div style="opacity:0.7;">${d.temp_c || '-'}°</div></div>`).join('')}
+            </div>`;
         }
         
-        // Update provenance display
+        // Provenance tags
         const provDiv = document.getElementById('wmProvenance');
         if (provDiv && prov) {
             const sources = new Set();
@@ -707,10 +701,13 @@ async function loadWorldModel() {
             provDiv.innerHTML = tags;
         }
         
-        // Display AWD assessment from handbook rules
+        // AWD assessment
         displayHandbookAssessment(wm.awd_assessment, rules, state.das);
         
-        // Load and display observation timeline
+        // AWD Progress (fetch separately)
+        await loadAWDProgress(currentFarmId);
+        
+        // Observation timeline
         await loadObservationTimeline(currentFarmId);
         
         console.log('[WM] World model loaded successfully');
@@ -720,6 +717,243 @@ async function loadWorldModel() {
         console.error('Failed to load world model:', error.message, error.stack);
     }
 }
+
+// ─── AWD Progress ────────────────────────────────────────
+
+async function loadAWDProgress(farmId) {
+    try {
+        const data = await apiCall(`/awd-progress/${farmId}`);
+        const prog = data.progress || {};
+        const schedule = data.schedule || [];
+        const criteria = data.criteria || [];
+        
+        renderProgressBar(prog);
+        renderPhaseSchedule(schedule, prog);
+        renderVerificationCriteria(criteria, prog);
+        renderCertificateArea(prog, farmId);
+    } catch (err) {
+        console.error('Failed to load AWD progress:', err);
+    }
+}
+
+function renderProgressBar(prog) {
+    const container = document.getElementById('awdProgressContainer');
+    if (!container) return;
+    
+    const pct = prog.percent_complete || 0;
+    const das = prog.current_das;
+    const cycles = prog.cycles_completed || 0;
+    const eligible = prog.certificate_eligible;
+    
+    // Color based on progress
+    let barColor = '#10a37f';
+    if (pct >= 100) barColor = eligible ? '#16a34a' : '#f59e0b';
+    
+    // Cycle indicators
+    const cycleIcons = [1,2,3].map(c => {
+        const done = cycles >= c;
+        return `<div class="awd-cycle-badge ${done ? 'done' : ''}">
+            <span class="cycle-icon">${done ? '✅' : '⬜'}</span>
+            <span class="cycle-label">Cycle ${c}</span>
+        </div>`;
+    }).join('');
+    
+    // Phase markers on progress bar
+    const markers = [
+        { pos: 20/115*100, label: 'C1', color: '#f59e0b' },
+        { pos: 34/115*100, label: 'C2', color: '#f59e0b' },
+        { pos: 56/115*100, label: 'C3', color: '#f59e0b' },
+        { pos: 60/115*100, label: '🌾', color: '#dc2626' },
+        { pos: 100/115*100, label: '🚜', color: '#78716c' },
+    ];
+    const markerHTML = markers.map(m => 
+        `<div class="awd-bar-marker" style="left:${m.pos}%" title="${m.label}">
+            <div class="marker-line" style="background:${m.color};"></div>
+            <div class="marker-label" style="color:${m.color};">${m.label}</div>
+        </div>`
+    ).join('');
+    
+    container.innerHTML = `
+        <div class="awd-progress-header">
+            <div class="awd-progress-pct">
+                <span class="pct-number">${Math.round(pct)}%</span>
+                <span class="pct-label">Season Progress</span>
+            </div>
+            <div class="awd-progress-das">
+                ${das != null ? `<span class="das-big">Day ${das}</span><span class="das-label">of ~115</span>` : '<span class="das-big">-</span>'}
+            </div>
+            <div class="awd-progress-cert">
+                ${eligible 
+                    ? '<span class="cert-badge eligible">🏆 CERTIFICATE READY</span>' 
+                    : `<span class="cert-badge pending">${cycles}/3 cycles done</span>`}
+            </div>
+        </div>
+        <div class="awd-bar-wrapper">
+            <div class="awd-bar-track">
+                <div class="awd-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+                <div class="awd-bar-cursor" style="left:${Math.min(pct, 100)}%;"></div>
+                ${markerHTML}
+            </div>
+            <div class="awd-bar-labels">
+                <span>Day 1</span><span>Day 30</span><span>Day 60</span><span>Day 90</span><span>Day 115</span>
+            </div>
+        </div>
+        <div class="awd-cycle-row">${cycleIcons}</div>
+    `;
+}
+
+function renderPhaseSchedule(schedule, prog) {
+    const container = document.getElementById('awdPhaseSchedule');
+    if (!container) return;
+    
+    const das = prog.current_das;
+    const completed = prog.phases_completed || [];
+    
+    const phaseCards = schedule.map(p => {
+        const isCurrent = p.id === prog.current_phase_id;
+        const isDone = completed.includes(p.id);
+        const isDrying = p.is_drying;
+        
+        let statusClass = '';
+        if (isCurrent) statusClass = 'phase-current';
+        else if (isDone) statusClass = 'phase-done';
+        else statusClass = 'phase-future';
+        
+        let cycleTag = '';
+        if (p.cycle) cycleTag = `<span class="phase-cycle-tag">CYCLE ${p.cycle}</span>`;
+        
+        return `
+        <div class="awd-phase-card ${statusClass} ${isDrying ? 'phase-drying' : ''}">
+            <div class="phase-icon-col">
+                <span class="phase-num">${isDone ? '✅' : isCurrent ? '▶' : p.id}</span>
+                <span class="phase-emoji">${p.icon}</span>
+            </div>
+            <div class="phase-info-col">
+                <div class="phase-name-row">
+                    <span class="phase-name">${p.name}</span>
+                    ${cycleTag}
+                    ${isCurrent ? '<span class="phase-here-tag">YOU ARE HERE</span>' : ''}
+                </div>
+                <div class="phase-days">${p.day_range}</div>
+                <div class="phase-rule">${p.rule}</div>
+            </div>
+        </div>`;
+    }).join('');
+    
+    container.innerHTML = `<div class="awd-phase-list">${phaseCards}</div>`;
+}
+
+function renderVerificationCriteria(criteria, prog) {
+    const container = document.getElementById('awdVerification');
+    if (!container) return;
+    
+    const met = prog.criteria_met || {};
+    const total = criteria.length;
+    const done = Object.values(met).filter(v => v).length;
+    
+    const items = criteria.map(c => {
+        const passed = met[c.id];
+        return `
+        <div class="awd-verify-item ${passed ? 'verified' : ''}">
+            <div class="verify-check">${passed ? '✅' : '⬜'}</div>
+            <div class="verify-info">
+                <div class="verify-label">${c.icon} ${c.label}</div>
+                <div class="verify-desc">${c.description}</div>
+            </div>
+        </div>`;
+    }).join('');
+    
+    container.innerHTML = `
+        <div class="awd-verify-header">
+            <div class="verify-progress-ring">
+                <span class="verify-count">${done}/${total}</span>
+            </div>
+            <span class="verify-summary">${done === total ? '🎉 All criteria met!' : `${total - done} remaining`}</span>
+        </div>
+        <div class="awd-verify-list">${items}</div>
+    `;
+}
+
+function renderCertificateArea(prog, farmId) {
+    const section = document.getElementById('awdCertificateSection');
+    const area = document.getElementById('awdCertificateArea');
+    if (!section || !area) return;
+    
+    if (prog.certificate_eligible) {
+        section.style.display = 'block';
+        area.innerHTML = `
+        <div class="awd-cert-banner">
+            <div class="cert-banner-icon">🏆</div>
+            <div class="cert-banner-text">
+                <strong>Congratulations!</strong>
+                <p>You have completed all 3 AWD wet-dry cycles and met all verification criteria. You are eligible for your AWD Completion Certificate.</p>
+            </div>
+            <button class="btn-primary cert-view-btn" onclick="viewCertificate('${farmId}')">View Certificate</button>
+        </div>`;
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+async function viewCertificate(farmId) {
+    try {
+        showLoading();
+        const data = await apiCall(`/awd-certificate/${farmId}`);
+        hideLoading();
+        
+        if (!data.eligible) {
+            alert('Certificate not yet available. Complete all verification criteria first.');
+            return;
+        }
+        
+        const cert = data.certificate;
+        const content = document.getElementById('certContent');
+        content.innerHTML = `
+        <div class="awd-certificate">
+            <div class="cert-header">
+                <div class="cert-emblem">🌾</div>
+                <h1 class="cert-title">AWD Completion Certificate</h1>
+                <p class="cert-subtitle">Alternate Wetting & Drying — Three Wet-Dry Cycles</p>
+                <div class="cert-divider"></div>
+            </div>
+            <div class="cert-body">
+                <p class="cert-preamble">This is to certify that</p>
+                <p class="cert-farmer">${cert.farmer_id}</p>
+                <p class="cert-preamble">has successfully implemented AWD irrigation with<br><strong>${cert.cycles_completed} wet-dry cycles</strong> on farm <strong>${cert.farm_id}</strong></p>
+                <div class="cert-details">
+                    <div class="cert-detail-row"><span>Province</span><span>${cert.province || '-'}</span></div>
+                    <div class="cert-detail-row"><span>District</span><span>${cert.district || '-'}</span></div>
+                    <div class="cert-detail-row"><span>Sowing Date</span><span>${cert.sowing_date || '-'}</span></div>
+                    <div class="cert-detail-row"><span>Completion Date</span><span>${cert.completion_date}</span></div>
+                    <div class="cert-detail-row"><span>Days After Sowing</span><span>${cert.das_at_completion}</span></div>
+                </div>
+                <div class="cert-verification">
+                    <strong>Verification Summary</strong>
+                    <p>${cert.verification_summary}</p>
+                    <div class="cert-checks">
+                        ${Object.entries(cert.criteria_met).map(([k, v]) => 
+                            `<span class="cert-check ${v ? 'pass' : 'fail'}">${v ? '✅' : '❌'} ${k.replace(/_/g, ' ')}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="cert-footer">
+                <div class="cert-seal">🏆</div>
+                <p>1 Million Hectare Programme — AWD Water-Saving Irrigation</p>
+            </div>
+            <div style="text-align:center;margin-top:24px;">
+                <button class="btn-primary" onclick="window.print()">🖨️ Print Certificate</button>
+            </div>
+        </div>`;
+        
+        document.getElementById('certModal').style.display = 'flex';
+    } catch (err) {
+        hideLoading();
+        console.error('Failed to load certificate:', err);
+    }
+}
+
+// ─── Observation Timeline ────────────────────────────────
 
 async function loadObservationTimeline(farmId) {
     const container = document.getElementById('wmObservations');
@@ -734,14 +968,8 @@ async function loadObservationTimeline(farmId) {
             return;
         }
         
-        const sourceIcons = {
-            'chat': '💬', 'checkin': '📋', 'weather': '🌤️',
-            'derived': '⚙️', 'profile': '👤', 'system': '🔧'
-        };
-        const sourceColors = {
-            'chat': '#10b981', 'checkin': '#3b82f6', 'weather': '#f59e0b',
-            'derived': '#8b5cf6', 'profile': '#6366f1', 'system': '#64748b'
-        };
+        const sourceIcons = { 'chat': '💬', 'checkin': '📋', 'weather': '🌤️', 'derived': '⚙️', 'profile': '👤', 'system': '🔧' };
+        const sourceColors = { 'chat': '#10b981', 'checkin': '#3b82f6', 'weather': '#f59e0b', 'derived': '#8b5cf6', 'profile': '#6366f1', 'system': '#64748b' };
         
         const items = obs.map(o => {
             const icon = sourceIcons[o.source] || '📝';
@@ -751,37 +979,30 @@ async function loadObservationTimeline(farmId) {
             const newVal = o.new_value != null ? o.new_value : '-';
             const field = o.field_name.replace(/_/g, ' ');
             const conf = o.confidence != null ? `${Math.round(o.confidence * 100)}%` : '';
-            const trigger = o.trigger ? `<div style="opacity:0.6;font-size:0.8em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px;" title="${o.trigger.replace(/"/g, '&quot;')}">${o.trigger}</div>` : '';
-            
-            return `
-                <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-color);">
-                    <div style="flex-shrink:0;width:28px;text-align:center;font-size:1.1em;">${icon}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="display:flex;justify-content:space-between;align-items:baseline;">
-                            <span style="font-weight:600;text-transform:capitalize;">${field}</span>
-                            <span style="font-size:0.75em;opacity:0.6;">${time}</span>
-                        </div>
-                        <div style="font-size:0.85em;margin-top:2px;">
-                            <span style="opacity:0.5;">${oldVal}</span>
-                            <span style="margin:0 4px;">→</span>
-                            <span style="font-weight:600;color:${color};">${newVal}</span>
-                            ${conf ? `<span style="margin-left:6px;opacity:0.5;font-size:0.85em;">(${conf})</span>` : ''}
-                        </div>
-                        ${trigger}
+            return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+                <div style="flex-shrink:0;width:28px;text-align:center;font-size:1.1em;">${icon}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                        <span style="font-weight:600;text-transform:capitalize;">${field}</span>
+                        <span style="font-size:0.75em;opacity:0.6;">${time}</span>
+                    </div>
+                    <div style="font-size:0.85em;margin-top:2px;">
+                        <span style="opacity:0.5;">${oldVal}</span> <span style="margin:0 4px;">→</span>
+                        <span style="font-weight:600;color:${color};">${newVal}</span>
+                        ${conf ? `<span style="margin-left:6px;opacity:0.5;font-size:0.85em;">(${conf})</span>` : ''}
                     </div>
                 </div>
-            `;
+            </div>`;
         }).join('');
         
-        container.innerHTML = `
-            <div style="font-weight:600;margin-bottom:8px;">📊 State Observation Timeline</div>
-            <div style="max-height:300px;overflow-y:auto;">${items}</div>
-        `;
+        container.innerHTML = `<div style="max-height:300px;overflow-y:auto;">${items}</div>`;
     } catch (err) {
         console.error('Failed to load observations:', err);
         container.innerHTML = '<div style="opacity:0.5;font-size:0.9em;">Could not load observations</div>';
     }
 }
+
+// ─── Assessment Display ──────────────────────────────────
 
 function formatGrowthStage(stage) {
     if (!stage) return '-';
@@ -799,51 +1020,20 @@ function displayHandbookAssessment(assessment, rules, das) {
         return;
     }
     
-    // AWD Assessment card
-    const assessDiv = document.createElement('div');
     const irrigateColor = assessment.should_irrigate ? '#dc2626' : '#16a34a';
     const irrigateIcon = assessment.should_irrigate ? '🔴 IRRIGATE NOW' : '🟢 NO IRRIGATION NEEDED';
     
-    assessDiv.innerHTML = `
+    trajectoryViz.innerHTML = `
         <div style="padding:16px;border-radius:8px;background:var(--bg-tertiary);border-left:4px solid ${irrigateColor};margin-bottom:16px;">
             <div style="font-size:1.1em;font-weight:700;margin-bottom:8px;">${irrigateIcon}</div>
             <div style="margin-bottom:8px;">${assessment.reason || 'No water table data yet. Tell the assistant your measurements.'}</div>
             ${assessment.das_phase ? `<div style="opacity:0.8;font-size:0.9em;">📅 ${assessment.das_phase}</div>` : ''}
             ${assessment.is_sensitive_stage ? `<div style="color:#dc2626;font-weight:600;margin-top:8px;">⚠️ Sensitive growth stage — maintain shallow ponding</div>` : ''}
         </div>
-    `;
-    trajectoryViz.appendChild(assessDiv);
-    
-    // AWD Schedule from handbook with current phase highlighting
-    const phases = [
-        { range: [1, 7],   icon: '🌱', label: 'Day 1-7: Keep moist for germination' },
-        { range: [8, 11],  icon: '👀', label: 'Day 8-11: Monitor — transition period' },
-        { range: [12, 22], icon: '💨', label: 'Day 12-22: Drain to oxygenate roots' },
-        { range: [23, 27], icon: '👀', label: 'Day 23-27: Monitor — AWD cycle' },
-        { range: [28, 40], icon: '💨', label: 'Day 28-40: Second drying cycle' },
-        { range: [41, 59], icon: '💧', label: 'Day 41-59: AWD monitoring with tube' },
-        { range: [60, 109],icon: '⚠️', label: `Day 60-109: Sensitive stages — maintain ${rules.refill_min_cm}-${rules.refill_max_cm}cm` },
-        { range: [110,200],icon: '🌾', label: 'Day 110+: Pre-harvest — final drying' },
-    ];
-    
-    const schedDiv = document.createElement('div');
-    const phaseItems = phases.map(p => {
-        const isCurrent = das != null && das >= p.range[0] && das <= p.range[1];
-        const bg = isCurrent ? 'var(--primary)' : 'var(--bg-tertiary)';
-        const color = isCurrent ? '#fff' : 'inherit';
-        const indicator = isCurrent ? ' ← YOU ARE HERE' : '';
-        return `<div style="padding:8px 12px;background:${bg};color:${color};border-radius:6px;font-weight:${isCurrent ? '600' : '400'};">${p.icon} ${p.label}${indicator}</div>`;
-    }).join('');
-    
-    schedDiv.innerHTML = `
-        <div style="font-weight:600;margin-bottom:8px;">📖 AWD Handbook Schedule:</div>
-        <div style="display:grid;gap:6px;font-size:0.85em;">${phaseItems}</div>
-        <div style="margin-top:12px;padding:10px;background:var(--bg-tertiary);border-radius:6px;font-size:0.85em;">
-            <strong>AWD Trigger:</strong> Irrigate when water table ≥ ${rules.trigger_depth_cm}cm below surface OR soil cracks appear<br>
-            <strong>Refill target:</strong> ${rules.refill_min_cm}-${rules.refill_max_cm}cm shallow ponding
-        </div>
-    `;
-    trajectoryViz.appendChild(schedDiv);
+        <div style="padding:10px;background:var(--bg-tertiary);border-radius:6px;font-size:0.85em;">
+            <strong>AWD Trigger:</strong> Irrigate when water table ≥ ${rules.trigger_depth_cm || 15}cm below surface OR soil cracks appear<br>
+            <strong>Refill target:</strong> ${rules.refill_min_cm || 3}–${rules.refill_max_cm || 5}cm shallow ponding
+        </div>`;
 }
 
 // Daily Check-In

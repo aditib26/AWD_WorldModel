@@ -879,7 +879,9 @@ def get_world_model(farm_id: str, current_user: Optional[dict] = Depends(get_cur
 
 
 def _assess_awd_from_handbook(state, awd_config):
-    """Pure handbook-based assessment. No fabricated physics."""
+    """Pure handbook-based assessment using the 10-phase AWD schedule with 3 wet-dry cycles."""
+    from .awd_progress import get_current_phase
+    
     trigger = awd_config.get("awd_trigger_depth_cm", 15)
     refill_min = awd_config.get("awd_refill_min_cm", 3)
     refill_max = awd_config.get("awd_refill_max_cm", 5)
@@ -888,46 +890,164 @@ def _assess_awd_from_handbook(state, awd_config):
         "should_irrigate": False,
         "reason": "",
         "das_phase": "",
-        "is_sensitive_stage": False
+        "is_sensitive_stage": False,
+        "current_phase": None,
     }
     
-    # Determine DAS phase from handbook schedule
     das = state.das
-    if das is not None:
-        if das <= 7:
-            assessment["das_phase"] = "Germination (Day 1-7): Keep moist"
-        elif 12 <= das <= 22:
-            assessment["das_phase"] = "First drying (Day 12-22): Drain to oxygenate roots"
-        elif 28 <= das <= 40:
-            assessment["das_phase"] = "Second drying (Day 28-40): Drain again"
-        elif das > 100:
-            assessment["das_phase"] = "Pre-harvest: Consider final drying"
-        else:
-            assessment["das_phase"] = f"Day {das}: Monitor with AWD tube"
+    phase = get_current_phase(das)
     
-    # Check if in sensitive stage (handbook rule)
-    sensitive = state.growth_stage in ["panicle_initiation", "heading", "grain_filling"]
+    if phase:
+        assessment["current_phase"] = phase
+        assessment["das_phase"] = f"{phase['icon']} {phase['name']} (Day {phase['day_start']}–{phase['day_end']}): {phase['rule']}"
+        
+        # Drying phases: farmer should NOT irrigate unless water table > 15cm
+        if phase["is_drying"]:
+            wt = state.water_table_depth_cm
+            if wt is not None and wt >= trigger:
+                assessment["should_irrigate"] = True
+                assessment["reason"] = f"Water table at {wt:.1f}cm — reached AWD trigger ({trigger}cm). Re-flood to {refill_min}–{refill_max}cm."
+            elif wt is not None:
+                assessment["reason"] = f"Drying phase: water table at {wt:.1f}cm (threshold: {trigger}cm). Let field continue drying."
+            else:
+                assessment["reason"] = f"Drying phase (Cycle {phase.get('cycle', '?')}): allow water table to fall to {trigger}cm before re-flooding."
+        else:
+            # Non-drying phases: maintain shallow flood
+            assessment["reason"] = phase["rule"]
+    elif das is not None:
+        assessment["das_phase"] = f"Day {das}: Post-season or between phases"
+    
+    # Sensitive stage check (Phase 8: Day 60–70)
+    sensitive = state.growth_stage in ["panicle_initiation", "heading"] or (das is not None and 60 <= das <= 70)
     assessment["is_sensitive_stage"] = sensitive
     
-    # AWD trigger check (handbook rule: irrigate when WT >= 15cm below surface)
+    # AWD trigger check (applies in all phases)
     wt = state.water_table_depth_cm
     if wt is not None:
-        if wt >= trigger:
+        if wt >= trigger and not (phase and phase["is_drying"]):
             assessment["should_irrigate"] = True
-            assessment["reason"] = f"Water table at {wt:.1f}cm below surface — exceeds AWD trigger of {trigger}cm. Irrigate to {refill_min}-{refill_max}cm."
-        else:
-            assessment["reason"] = f"Water table at {wt:.1f}cm below surface — within safe range (trigger: {trigger}cm). No irrigation needed."
+            assessment["reason"] = f"Water table at {wt:.1f}cm below surface — exceeds AWD trigger of {trigger}cm. Irrigate to {refill_min}–{refill_max}cm."
     
-    # Soil crack check (handbook rule: cracks = irrigate)
+    # Soil crack check
     if state.soil_cracks in ["visible", "deep"]:
-        assessment["should_irrigate"] = True
+        if not (phase and phase["is_drying"]):
+            assessment["should_irrigate"] = True
         assessment["reason"] += f" Soil cracks ({state.soil_cracks}) detected — handbook says irrigate."
     
     # Sensitive stage override
     if sensitive:
-        assessment["reason"] += " ⚠️ SENSITIVE STAGE — avoid deep drying, maintain {}-{}cm ponding.".format(refill_min, refill_max)
+        assessment["should_irrigate"] = True if (wt is not None and wt > 5) else assessment["should_irrigate"]
+        assessment["reason"] += f" ⚠️ SENSITIVE STAGE — avoid deep drying, maintain {refill_min}–{refill_max}cm continuous flood."
     
     return assessment
+
+
+# ============================================================================
+# AWD PROGRESS & CERTIFICATE ENDPOINTS
+# ============================================================================
+
+@app.get("/awd-progress/{farm_id}")
+def get_awd_progress(farm_id: str, current_user: Optional[dict] = Depends(get_current_user)):
+    """Get AWD progress: phase schedule, current phase, verification criteria, certificate eligibility."""
+    from .awd_progress import calculate_progress, get_phase_schedule, get_verification_criteria
+    farm_id = _sanitize_farm_id(farm_id)
+    _require_farm_access(farm_id, current_user)
+    
+    profile = storage.load_profile(farm_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Farm profile not found")
+    
+    state = storage.load_latest_state(farm_id)
+    if not state:
+        state = state_manager.initialize_state(profile)
+    state = _refresh_time_fields(state, profile)
+    
+    # Get observation + checkin history for verification
+    observations = _observer.get_observations(farm_id=farm_id, limit=200)
+    checkins = []
+    if hasattr(storage, 'load_recent_checkins'):
+        checkins = storage.load_recent_checkins(farm_id, n=50)
+    
+    progress = calculate_progress(
+        farm_id=farm_id,
+        das=state.das,
+        state=state,
+        observations=observations,
+        checkins=checkins,
+    )
+    
+    return {
+        "progress": progress.model_dump(mode='json'),
+        "schedule": get_phase_schedule(),
+        "criteria": get_verification_criteria(),
+        "state": {
+            "das": state.das,
+            "growth_stage": state.growth_stage,
+            "ponded_water_cm": state.ponded_water_cm,
+            "water_table_depth_cm": state.water_table_depth_cm,
+            "soil_cracks": state.soil_cracks,
+            "regime": state.regime,
+        },
+    }
+
+
+@app.get("/awd-certificate/{farm_id}")
+def get_awd_certificate(farm_id: str, current_user: Optional[dict] = Depends(get_current_user)):
+    """Generate AWD completion certificate data."""
+    from .awd_progress import calculate_progress
+    farm_id = _sanitize_farm_id(farm_id)
+    _require_farm_access(farm_id, current_user)
+    
+    profile = storage.load_profile(farm_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Farm profile not found")
+    
+    state = storage.load_latest_state(farm_id)
+    if not state:
+        raise HTTPException(status_code=400, detail="No state data — cannot issue certificate")
+    state = _refresh_time_fields(state, profile)
+    
+    observations = _observer.get_observations(farm_id=farm_id, limit=200)
+    checkins = []
+    if hasattr(storage, 'load_recent_checkins'):
+        checkins = storage.load_recent_checkins(farm_id, n=50)
+    
+    progress = calculate_progress(
+        farm_id=farm_id, das=state.das, state=state,
+        observations=observations, checkins=checkins,
+    )
+    
+    if not progress.certificate_eligible:
+        return {
+            "eligible": False,
+            "message": "Not all verification criteria have been met yet.",
+            "criteria_met": progress.criteria_met,
+            "cycles_completed": progress.cycles_completed,
+        }
+    
+    from datetime import datetime as dt
+    return {
+        "eligible": True,
+        "certificate": {
+            "title": "AWD Completion Certificate",
+            "subtitle": "Alternate Wetting & Drying — Three Wet-Dry Cycles",
+            "farm_id": farm_id,
+            "farmer_id": profile.farmer_id,
+            "province": profile.province,
+            "district": profile.district,
+            "variety_duration": profile.variety_duration,
+            "sowing_date": profile.sowing_date.isoformat() if profile.sowing_date else None,
+            "completion_date": dt.now().strftime("%B %d, %Y"),
+            "cycles_completed": progress.cycles_completed,
+            "criteria_met": progress.criteria_met,
+            "das_at_completion": state.das,
+            "regime": state.regime,
+            "verification_summary": (
+                f"Farmer successfully implemented AWD with {progress.cycles_completed} wet-dry cycles. "
+                f"All {len([v for v in progress.criteria_met.values() if v])} of 6 verification criteria met."
+            ),
+        },
+    }
 
 
 # ============================================================================

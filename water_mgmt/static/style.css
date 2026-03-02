@@ -1474,6 +1474,612 @@ body {
     }
 }
 
+/* ─── AWD Progress Bar ─── */
+.awd-progress-container {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+}
+
+.awd-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.awd-progress-pct {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.pct-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.pct-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.awd-progress-das {
+    text-align: center;
+}
+
+.das-big {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.das-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+
+.cert-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.cert-badge.eligible {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    animation: pulse-gold 2s ease-in-out infinite;
+}
+
+.cert-badge.pending {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+@keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+
+.awd-bar-wrapper {
+    margin-bottom: 16px;
+}
+
+.awd-bar-track {
+    position: relative;
+    height: 16px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    overflow: visible;
+}
+
+.awd-bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.8s ease;
+    background: var(--primary);
+}
+
+.awd-bar-cursor {
+    position: absolute;
+    top: -4px;
+    width: 4px;
+    height: 24px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transform: translateX(-2px);
+    transition: left 0.8s ease;
+    z-index: 2;
+}
+
+.awd-bar-marker {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 1;
+}
+
+.marker-line {
+    width: 2px;
+    height: 16px;
+    margin: 0 auto;
+    opacity: 0.6;
+}
+
+.marker-label {
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+.awd-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.awd-cycle-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.awd-cycle-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.awd-cycle-badge.done {
+    background: #dcfce7;
+    color: #166534;
+}
+
+[data-theme="dark"] .awd-cycle-badge.done {
+    background: #14532d;
+    color: #86efac;
+}
+
+/* ─── AWD Phase Schedule ─── */
+.awd-phase-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.awd-phase-card {
+    display: flex;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    transition: var(--transition);
+}
+
+.awd-phase-card.phase-current {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(16, 163, 127, 0.08), rgba(16, 163, 127, 0.03));
+    box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.15);
+}
+
+.awd-phase-card.phase-done {
+    opacity: 0.65;
+}
+
+.awd-phase-card.phase-future {
+    opacity: 0.8;
+}
+
+.awd-phase-card.phase-drying {
+    border-left: 4px solid #f59e0b;
+}
+
+.awd-phase-card.phase-drying.phase-current {
+    border-left: 4px solid #f59e0b;
+}
+
+.phase-icon-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 36px;
+}
+
+.phase-num {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.phase-current .phase-num {
+    color: var(--primary);
+    font-size: 16px;
+}
+
+.phase-emoji {
+    font-size: 20px;
+}
+
+.phase-info-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.phase-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.phase-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.phase-cycle-tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #fef3c7;
+    color: #92400e;
+    letter-spacing: 0.5px;
+}
+
+[data-theme="dark"] .phase-cycle-tag {
+    background: #451a03;
+    color: #fcd34d;
+}
+
+.phase-here-tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--primary);
+    color: white;
+    letter-spacing: 0.5px;
+    animation: pulse-here 2s ease-in-out infinite;
+}
+
+@keyframes pulse-here {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.phase-days {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.phase-rule {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* ─── Verification Criteria ─── */
+.awd-verify-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.verify-progress-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 3px solid var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.verify-count {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.verify-summary {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.awd-verify-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.awd-verify-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    transition: var(--transition);
+}
+
+.awd-verify-item.verified {
+    border-color: #16a34a;
+    background: linear-gradient(135deg, rgba(22, 163, 74, 0.06), rgba(22, 163, 74, 0.02));
+}
+
+.verify-check {
+    font-size: 20px;
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.verify-info {
+    flex: 1;
+}
+
+.verify-label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.verify-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* ─── Certificate Banner ─── */
+.awd-cert-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 2px solid #f59e0b;
+}
+
+[data-theme="dark"] .awd-cert-banner {
+    background: linear-gradient(135deg, #451a03, #78350f);
+    border-color: #b45309;
+}
+
+.cert-banner-icon {
+    font-size: 40px;
+    flex-shrink: 0;
+}
+
+.cert-banner-text {
+    flex: 1;
+}
+
+.cert-banner-text strong {
+    font-size: 18px;
+    display: block;
+    margin-bottom: 4px;
+    color: #92400e;
+}
+
+[data-theme="dark"] .cert-banner-text strong {
+    color: #fcd34d;
+}
+
+.cert-banner-text p {
+    font-size: 14px;
+    color: #78350f;
+    margin: 0;
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .cert-banner-text p {
+    color: #fde68a;
+}
+
+.cert-view-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* ─── AWD Certificate ─── */
+.awd-certificate {
+    border: 3px solid #b45309;
+    border-radius: 16px;
+    padding: 40px;
+    background: linear-gradient(180deg, #fffbeb 0%, #ffffff 50%, #fffbeb 100%);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .awd-certificate {
+    background: linear-gradient(180deg, #1c1917 0%, #292524 50%, #1c1917 100%);
+    border-color: #d97706;
+}
+
+.cert-header {
+    margin-bottom: 24px;
+}
+
+.cert-emblem {
+    font-size: 56px;
+    margin-bottom: 12px;
+}
+
+.cert-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #92400e;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+[data-theme="dark"] .cert-title {
+    color: #fcd34d;
+}
+
+.cert-subtitle {
+    font-size: 14px;
+    color: #b45309;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .cert-subtitle {
+    color: #fbbf24;
+}
+
+.cert-divider {
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #b45309, transparent);
+    margin: 16px auto;
+    border-radius: 2px;
+}
+
+.cert-body {
+    margin-bottom: 24px;
+}
+
+.cert-preamble {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.cert-farmer {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 12px 0;
+    letter-spacing: 0.5px;
+}
+
+.cert-details {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 20px auto;
+    text-align: left;
+    min-width: 280px;
+}
+
+.cert-detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--border);
+    font-size: 14px;
+}
+
+.cert-detail-row span:first-child {
+    color: var(--text-secondary);
+}
+
+.cert-detail-row span:last-child {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.cert-verification {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(16, 163, 127, 0.06);
+    border-radius: 10px;
+    text-align: left;
+}
+
+.cert-verification strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.cert-verification p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.cert-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cert-check {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.cert-check.pass {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.cert-check.fail {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+[data-theme="dark"] .cert-check.pass {
+    background: #14532d;
+    color: #86efac;
+}
+
+[data-theme="dark"] .cert-check.fail {
+    background: #450a0a;
+    color: #fca5a5;
+}
+
+.cert-footer {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 2px solid #d97706;
+}
+
+.cert-seal {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.cert-footer p {
+    font-size: 13px;
+    color: #b45309;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+[data-theme="dark"] .cert-footer p {
+    color: #fbbf24;
+}
+
+/* Print styles for certificate */
+@media print {
+    body * { visibility: hidden; }
+    #certModal, #certModal * { visibility: visible; }
+    #certModal { position: absolute; left: 0; top: 0; width: 100%; background: white; }
+    .modal-close, .btn-primary { display: none !important; }
+    .awd-certificate { border: 3px solid #b45309; }
+}
+
 /* Responsive - Tablet */
 @media (max-width: 768px) {
     .sidebar {

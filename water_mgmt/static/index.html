@@ -207,7 +207,7 @@
             <div class="modal modal-lg" id="worldModelModal" style="display:none;">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h2>World Model - Farm State & AWD Rules</h2>
+                        <h2>🌾 AWD World Model — 3 Wet-Dry Cycles</h2>
                         <button class="modal-close" id="closeWorldModelModal">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
@@ -216,10 +216,42 @@
                         <div class="world-model-explainer">
                             <div class="explainer-icon">🌾</div>
                             <div class="explainer-text">
-                                <strong>What is the World Model?</strong>
-                                <p>The World Model tracks your farm's state from your conversations — water levels, soil conditions, growth stage, and regime. It uses AWD handbook rules to assess whether you should irrigate.</p>
+                                <strong>Alternate Wetting & Drying (AWD)</strong>
+                                <p>Your field goes through 10 phases with 3 wet-dry cycles. Complete all cycles to earn your AWD Certificate — reducing water use and emissions while maintaining yield.</p>
                             </div>
                         </div>
+
+                        <!-- AWD Progress Bar -->
+                        <div class="wm-section">
+                            <h3>📊 AWD Season Progress</h3>
+                            <div id="awdProgressContainer" class="awd-progress-container">
+                                <div class="loading-placeholder">Loading AWD progress...</div>
+                            </div>
+                        </div>
+
+                        <!-- AWD Phase Schedule -->
+                        <div class="wm-section">
+                            <h3>📖 10-Phase AWD Schedule</h3>
+                            <p class="section-desc">Three wet-dry cycles highlighted in amber. Your current phase is highlighted.</p>
+                            <div id="awdPhaseSchedule" class="awd-schedule">
+                                <div class="loading-placeholder">Loading schedule...</div>
+                            </div>
+                        </div>
+
+                        <!-- Verification Criteria -->
+                        <div class="wm-section">
+                            <h3>✅ Verification Criteria</h3>
+                            <p class="section-desc">Complete all 6 criteria to earn your AWD Certificate</p>
+                            <div id="awdVerification" class="awd-verification">
+                                <div class="loading-placeholder">Loading criteria...</div>
+                            </div>
+                        </div>
+
+                        <!-- Certificate Section -->
+                        <div class="wm-section" id="awdCertificateSection" style="display:none;">
+                            <div id="awdCertificateArea"></div>
+                        </div>
+
                         <div class="wm-section"><h3>Current Field State</h3>
                             <div class="state-grid" id="currentStateGrid">
                                 <div class="state-card"><div class="state-label">Days After Sowing</div><div class="state-value" id="wmDas">-</div></div>
@@ -231,7 +263,7 @@
                             </div>
                         </div>
                         <div class="wm-section"><h3>🌤️ Live Weather</h3>
-                            <p class="section-desc">Real-time data from OpenWeatherMap for your province. ET₀ is estimated from temperature.</p>
+                            <p class="section-desc">Real-time data from OpenWeatherMap for your province</p>
                             <div class="state-grid" id="weatherGrid">
                                 <div class="state-card"><div class="state-label">Temperature</div><div class="state-value" id="wmTemp">-</div></div>
                                 <div class="state-card"><div class="state-label">Rain (Last 24h)</div><div class="state-value" id="wmRain24">-</div></div>
@@ -241,10 +273,10 @@
                             <div id="wmForecastBar" style="margin-top:10px;"></div>
                         </div>
                         <div class="wm-section"><h3>AWD Handbook Assessment</h3>
-                            <p class="section-desc">Irrigation advice based on AWD handbook rules and your field observations</p>
+                            <p class="section-desc">Current irrigation advice based on your phase and field observations</p>
                             <div id="trajectoryViz" class="trajectory-container"><div class="loading-placeholder">Chat with the assistant to build your field state</div></div>
                         </div>
-                        <div class="wm-section"><h3>AWD Handbook Rules</h3>
+                        <div class="wm-section"><h3>AWD Rules</h3>
                             <div class="params-grid" id="hydroParams">
                                 <div class="param-item"><span class="param-name">AWD Trigger Depth</span><span class="param-value" id="paramET">15 cm</span></div>
                                 <div class="param-item"><span class="param-name">Refill Target</span><span class="param-value" id="paramPerc">3-5 cm</span></div>
@@ -263,6 +295,19 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- AWD Certificate Modal -->
+            <div class="modal" id="certModal" style="display:none;">
+                <div class="modal-content" style="max-width:700px;">
+                    <div class="modal-header" style="border:none;padding-bottom:0;">
+                        <span></span>
+                        <button class="modal-close" id="closeCertModal">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div id="certContent" style="padding:0 40px 40px;"></div>
                 </div>
             </div>
 
