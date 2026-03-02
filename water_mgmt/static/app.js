@@ -1240,6 +1240,91 @@ checkinForm.addEventListener('submit', async (e) => {
     }
 });
 
+// ─── Debug Test Panel ────────────────────────────────────
+
+const testPanel = document.getElementById('testPanel');
+const testPanelToggle = document.getElementById('testPanelToggle');
+const testLog = document.getElementById('testLog');
+
+function testLogMsg(msg) {
+    if (!testLog) return;
+    const entry = document.createElement('div');
+    entry.className = 'test-log-entry';
+    entry.textContent = `${new Date().toLocaleTimeString()} — ${msg}`;
+    testLog.prepend(entry);
+}
+
+testPanelToggle?.addEventListener('click', () => {
+    if (testPanel) testPanel.style.display = testPanel.style.display === 'none' ? 'block' : 'none';
+});
+
+// Stage buttons — set sowing date so DAS = data-das
+document.querySelectorAll('.test-stage-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (!currentFarmId) { alert('Open a farm first.'); return; }
+        const das = parseInt(btn.dataset.das);
+        const label = btn.dataset.label;
+        
+        // Highlight active
+        document.querySelectorAll('.test-stage-btn').forEach(b => b.classList.remove('active-stage'));
+        btn.classList.add('active-stage');
+        
+        testLogMsg(`Setting DAS to ${das} (${label})...`);
+        try {
+            const res = await apiCall('/debug/set-sowing-date', {
+                method: 'POST',
+                body: JSON.stringify({ farm_id: currentFarmId, days_ago: das })
+            });
+            testLogMsg(`✅ DAS=${res.das}, Stage=${res.growth_stage}`);
+            
+            // Update status bar
+            statusDas.textContent = `${res.das} DAS`;
+            statusRegime.textContent = res.growth_stage || statusRegime.textContent;
+        } catch (err) {
+            testLogMsg(`❌ ${err.message}`);
+        }
+    });
+});
+
+// Simulate full season
+document.getElementById('testSimulateFull')?.addEventListener('click', async () => {
+    if (!currentFarmId) { alert('Open a farm first.'); return; }
+    testLogMsg('Simulating full season...');
+    try {
+        const res = await apiCall(`/debug/simulate-full-season/${currentFarmId}`, { method: 'POST' });
+        testLogMsg(`✅ DAS=${res.das}, Certificate=${res.certificate_eligible ? 'ELIGIBLE' : 'not yet'}`);
+        statusDas.textContent = `${res.das} DAS`;
+        
+        // Highlight last button
+        document.querySelectorAll('.test-stage-btn').forEach(b => b.classList.remove('active-stage'));
+        const lastBtn = document.querySelector('.test-stage-btn[data-das="120"]');
+        if (lastBtn) lastBtn.classList.add('active-stage');
+    } catch (err) {
+        testLogMsg(`❌ ${err.message}`);
+    }
+});
+
+// Inject tube reading
+document.getElementById('testInjectObs')?.addEventListener('click', async () => {
+    if (!currentFarmId) { alert('Open a farm first.'); return; }
+    testLogMsg('Injecting tube reading (18cm)...');
+    try {
+        await apiCall('/debug/inject-observation', {
+            method: 'POST',
+            body: JSON.stringify({ farm_id: currentFarmId, field_name: 'water_table_depth_cm', value: 18.0 })
+        });
+        testLogMsg('✅ Tube reading injected');
+    } catch (err) {
+        testLogMsg(`❌ ${err.message}`);
+    }
+});
+
+// Open World Model shortcut
+document.getElementById('testOpenWM')?.addEventListener('click', async () => {
+    await loadWorldModel();
+    worldModelModal.style.display = 'flex';
+});
+
 // ─── Initialize ──────────────────────────────────────────
 if (authToken) {
     showDashboard();

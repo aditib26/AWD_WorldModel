@@ -1231,6 +1231,129 @@ Rationale:
 
 
 # ============================================================================
+# DEBUG / TESTING ENDPOINTS — Fast-forward farm through all AWD stages
+# ============================================================================
+
+class DebugSetSowingDate(BaseModel):
+    farm_id: str
+    days_ago: int  # Set sowing date to N days ago (= DAS N)
+
+@app.post("/debug/set-sowing-date")
+def debug_set_sowing_date(payload: DebugSetSowingDate, current_user: Optional[dict] = Depends(get_current_user)):
+    """Set sowing date to N days ago so DAS = N. For testing stage progression."""
+    farm_id = _sanitize_farm_id(payload.farm_id)
+    _require_farm_access(farm_id, current_user)
+    profile = storage.load_profile(farm_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Farm not found")
+    
+    from datetime import timedelta
+    new_sowing = date.today() - timedelta(days=payload.days_ago)
+    profile.sowing_date = new_sowing
+    storage.save_profile(profile)
+    
+    # Refresh state so DAS updates immediately
+    state = storage.load_latest_state(farm_id)
+    if state:
+        state = _refresh_time_fields(state, profile)
+        storage.save_state(state)
+    
+    return {
+        "status": "ok",
+        "farm_id": farm_id,
+        "sowing_date": new_sowing.isoformat(),
+        "das": payload.days_ago,
+        "growth_stage": state_manager.infer_growth_stage(payload.days_ago),
+    }
+
+
+class DebugInjectObs(BaseModel):
+    farm_id: str
+    field_name: str   # e.g. "water_table_depth_cm", "ponded_water_cm"
+    value: float
+    source: str = "checkin"
+
+@app.post("/debug/inject-observation")
+def debug_inject_observation(payload: DebugInjectObs, current_user: Optional[dict] = Depends(get_current_user)):
+    """Inject a fake observation for testing verification criteria."""
+    farm_id = _sanitize_farm_id(payload.farm_id)
+    _require_farm_access(farm_id, current_user)
+    
+    _observer.record_observation(
+        farm_id=farm_id,
+        field_name=payload.field_name,
+        old_value=None,
+        new_value=payload.value,
+        source=payload.source,
+        confidence=0.9,
+        trigger="debug-test",
+        trigger_type="debug",
+    )
+    return {"status": "ok", "field": payload.field_name, "value": payload.value}
+
+
+@app.post("/debug/simulate-full-season/{farm_id}")
+def debug_simulate_full_season(farm_id: str, current_user: Optional[dict] = Depends(get_current_user)):
+    """One-click: set sowing to 120 days ago + inject all observations needed for certificate.
+    Returns the full progress and certificate eligibility."""
+    from datetime import timedelta
+    farm_id = _sanitize_farm_id(farm_id)
+    _require_farm_access(farm_id, current_user)
+    
+    profile = storage.load_profile(farm_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Farm not found")
+    
+    # 1. Set sowing date to 120 days ago
+    profile.sowing_date = date.today() - timedelta(days=120)
+    storage.save_profile(profile)
+    
+    # 2. Refresh state
+    state = storage.load_latest_state(farm_id)
+    if state:
+        state = _refresh_time_fields(state, profile)
+        state.ponded_water_cm = 0.0  # Field is dry (post-harvest)
+        storage.save_state(state)
+    
+    # 3. Inject observations that satisfy all 6 verification criteria
+    test_obs = [
+        ("water_table_depth_cm", 18.0, "checkin"),   # AWD tube reading
+        ("water_table_depth_cm", 16.0, "checkin"),   # Another tube reading
+        ("ponded_water_cm", 4.0, "checkin"),          # Flooding during flowering
+    ]
+    for field, val, src in test_obs:
+        _observer.record_observation(
+            farm_id=farm_id, field_name=field,
+            old_value=None, new_value=val,
+            source=src, confidence=0.9,
+            trigger="debug-full-season", trigger_type="debug",
+        )
+    
+    # 4. Calculate progress to verify
+    from .awd_progress import calculate_progress
+    observations = _observer.get_observations(farm_id=farm_id, limit=200)
+    checkins = []
+    if hasattr(storage, 'load_recent_checkins'):
+        checkins = storage.load_recent_checkins(farm_id, n=50)
+    
+    regime = state.regime if state else "AWD"
+    progress = calculate_progress(
+        farm_id=farm_id, das=120, state=state,
+        observations=observations, checkins=checkins, regime=regime,
+    )
+    
+    return {
+        "status": "ok",
+        "farm_id": farm_id,
+        "das": 120,
+        "sowing_date": profile.sowing_date.isoformat(),
+        "progress": progress.model_dump(mode='json'),
+        "certificate_eligible": progress.certificate_eligible,
+        "message": "Farm fast-forwarded to Day 120. Open World Model to see full progress."
+    }
+
+
+# ============================================================================
 # HEALTH CHECK
 # ============================================================================
 
