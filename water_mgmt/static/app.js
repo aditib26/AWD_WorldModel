@@ -1240,203 +1240,157 @@ checkinForm.addEventListener('submit', async (e) => {
     }
 });
 
-// ─── Debug Test Panel ────────────────────────────────────
+// ─── Daily Conversation Simulator ────────────────────────
 
 const testPanel = document.getElementById('testPanel');
 const testPanelToggle = document.getElementById('testPanelToggle');
 const testLog = document.getElementById('testLog');
+const simDayLabel = document.getElementById('simDayLabel');
+const simProgressBar = document.getElementById('simProgressBar');
 
-// Realistic farmer interactions for each AWD stage
-const STAGE_SCRIPTS = {
-    1:   { chat: "I planted my rice this morning. There is some water in the field, maybe 3 centimeters. What should I do now?",
-           checkin: { measurement_mode: "standing_water_bucket", ponded_bucket: "three_five", soil_cracks: "none" } },
-    15:  { chat: "My seedlings are coming up nice. The field still has water standing in it. Is this okay or should I drain some?",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 2.0, soil_cracks: "none" } },
-    22:  { chat: "I looked at the tube and the water went down, about 10 centimeters below the ground. No cracks in the soil. Should I add water?",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 10.0, soil_cracks: "none" } },
-    30:  { chat: "I put water back in the field yesterday. It is about 4 centimeters deep now. The plants look good.",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 0, soil_cracks: "none" } },
-    38:  { chat: "The water went down again, tube says 12 centimeters. I can see some small cracks in the ground. What do you think?",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 12.0, soil_cracks: "small" } },
-    50:  { chat: "I flooded the field again. Water is about 5 centimeters. The plants are getting bigger and have many tillers.",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 0, soil_cracks: "none" } },
-    60:  { chat: "The field is drying out. Tube shows 16 centimeters below surface. There are some cracks near the edges. Plants still look healthy.",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 16.0, soil_cracks: "visible" } },
-    65:  { chat: "I can see the stems are getting thicker, I think the grain head is forming inside. Should I keep more water in the field?",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 5.0, soil_cracks: "none" } },
-    70:  { chat: "The rice is flowering now! I can see the white flowers on top. I have about 3 centimeters of water. Is that enough?",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 0, soil_cracks: "none" } },
-    90:  { chat: "The grains are getting heavy and the heads are bending down. There is a little water in the field, maybe 2 centimeters.",
-           checkin: { measurement_mode: "standing_water_bucket", ponded_bucket: "one_two", soil_cracks: "none" } },
-    110: { chat: "I think harvest is coming soon. The grains are turning golden. I stopped adding water and the soil has big cracks now.",
-           checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 25.0, soil_cracks: "deep" } },
-    120: { chat: "I finished harvesting! The field is completely dry. I did the wetting and drying three times this season. How did I do?",
-           checkin: { measurement_mode: "standing_water_bucket", ponded_bucket: "zero", soil_cracks: "deep" } },
-};
+// Daily farmer conversations — what a real farmer says each day they open the app
+const DAILY_SCRIPT = [
+    { das: 1,   msg: "I planted my rice this morning. There is some water in the field, maybe 3 centimeters." },
+    { das: 3,   msg: "The seeds are in the ground. How much water should I keep right now?" },
+    { das: 7,   msg: "Little green shoots are coming up. The water is still there, looks fine." },
+    { das: 12,  msg: "Seedlings are growing. I checked and there is about 2 centimeters of water left." },
+    { das: 16,  msg: "I installed the tube you told me about. Water is showing near the top, maybe 3 centimeters below." },
+    { das: 20,  msg: "Water in the tube went down to about 8 centimeters below the ground." },
+    { das: 24,  msg: "Tube is at 13 centimeters now. The soil looks a bit dry on the surface. Should I add water?" },
+    { das: 26,  msg: "I put water back in the field, about 4 centimeters deep. The plants look relieved." },
+    { das: 30,  msg: "Water is going down again. Tube shows about 5 centimeters below." },
+    { das: 34,  msg: "Tube at 10 centimeters. I can see a few tiny cracks near the bund." },
+    { das: 38,  msg: "Water is 14 centimeters down in the tube. Small cracks in the soil. Time to flood again?" },
+    { das: 40,  msg: "I flooded the field again to about 5 centimeters. Second time doing this wetting and drying." },
+    { das: 45,  msg: "Plants have lots of tillers now. Water still standing at maybe 3 centimeters." },
+    { das: 50,  msg: "Tube shows 7 centimeters below. The plants are getting tall." },
+    { das: 55,  msg: "Water dropped to 15 centimeters in the tube. Some cracks. I will add water." },
+    { das: 57,  msg: "Flooded again, about 4 centimeters. Third time now. Plants look strong." },
+    { das: 62,  msg: "I notice the stems are getting fatter at the base. Is that normal?" },
+    { das: 66,  msg: "I think the grain head is forming inside the stem. It feels hard when I squeeze it." },
+    { das: 70,  msg: "The rice is flowering! I can see white things coming out of the top. There is about 3 centimeters water." },
+    { das: 75,  msg: "Still flowering. I am keeping water in the field like you said. Is this enough?" },
+    { das: 80,  msg: "The flowers are gone now and I can see tiny grains forming. Water is about 2 centimeters." },
+    { das: 88,  msg: "The grains are getting bigger. The heads are starting to bend down from the weight." },
+    { das: 95,  msg: "Grains are filling up nicely. Some are turning from green to yellow. Still a little water." },
+    { das: 102, msg: "Most grains are yellow now. I have not added water for a few days. Soil is getting dry." },
+    { das: 108, msg: "I think harvest is maybe one week away. The field is drying out, some cracks." },
+    { das: 113, msg: "Almost ready to harvest. Grains are golden. Big cracks in the soil. Should I keep it dry?" },
+    { das: 118, msg: "I am harvesting tomorrow! The field is completely dry. Everything looks good." },
+    { das: 120, msg: "Harvest is done! I got a good yield. I did the wetting and drying like you showed me. Thank you!" },
+];
 
-function testLogMsg(msg) {
+let simIndex = 0;
+let simRunning = false;
+
+function simLog(msg) {
     if (!testLog) return;
     const entry = document.createElement('div');
     entry.className = 'test-log-entry';
-    entry.textContent = `${new Date().toLocaleTimeString()} — ${msg}`;
+    entry.textContent = msg;
     testLog.prepend(entry);
+}
+
+function simUpdateUI() {
+    const pct = Math.round((simIndex / DAILY_SCRIPT.length) * 100);
+    if (simProgressBar) simProgressBar.style.width = pct + '%';
+    if (simIndex < DAILY_SCRIPT.length) {
+        simDayLabel.textContent = `Day ${DAILY_SCRIPT[simIndex].das} — ${simIndex + 1}/${DAILY_SCRIPT.length}`;
+    } else {
+        simDayLabel.textContent = `Done (${DAILY_SCRIPT.length} days)`;
+    }
+}
+
+async function simRunDay() {
+    if (!currentFarmId) { alert('Open a farm first.'); return false; }
+    if (simIndex >= DAILY_SCRIPT.length) { simLog('Season complete.'); return false; }
+
+    const day = DAILY_SCRIPT[simIndex];
+    simLog(`── Day ${day.das} ──`);
+
+    // 1. Advance sowing date so DAS matches
+    try {
+        const r = await apiCall('/debug/set-sowing-date', {
+            method: 'POST',
+            body: JSON.stringify({ farm_id: currentFarmId, days_ago: day.das })
+        });
+        statusDas.textContent = `${r.das} DAS`;
+    } catch (e) {
+        simLog(`  DAS error: ${e.message}`);
+    }
+
+    // 2. Farmer sends their daily message
+    addMessage(day.msg, 'user');
+    try {
+        const res = await apiCall('/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                farm_id: currentFarmId,
+                message: day.msg,
+                conversation_history: []
+            })
+        });
+        if (res.response) addMessage(res.response, 'assistant');
+        if (res.state) {
+            statusDas.textContent = res.state.das ? `${res.state.das} DAS` : statusDas.textContent;
+            statusRegime.textContent = res.state.regime || statusRegime.textContent;
+        }
+        simLog(`  Day ${day.das}: ${res.state_changed ? 'state updated' : 'chat only'}`);
+    } catch (e) {
+        simLog(`  Chat error: ${e.message}`);
+    }
+
+    simIndex++;
+    simUpdateUI();
+    return simIndex < DAILY_SCRIPT.length;
 }
 
 testPanelToggle?.addEventListener('click', () => {
     if (testPanel) testPanel.style.display = testPanel.style.display === 'none' ? 'block' : 'none';
 });
 
-// Run a single stage: set DAS → send chat → submit check-in
-async function runStage(das) {
-    const script = STAGE_SCRIPTS[das];
-    if (!script || !currentFarmId) return;
-
-    // 1. Set sowing date
-    testLogMsg(`⏩ Setting DAS to ${das}...`);
-    const sowRes = await apiCall('/debug/set-sowing-date', {
-        method: 'POST',
-        body: JSON.stringify({ farm_id: currentFarmId, days_ago: das })
-    });
-    statusDas.textContent = `${sowRes.das} DAS`;
-    testLogMsg(`📅 DAS=${sowRes.das}, Stage=${sowRes.growth_stage}`);
-
-    // 2. Submit check-in FIRST so state/observations are updated
-    const checkinData = {
-        farm_id: currentFarmId,
-        checkin_date: new Date().toISOString().split('T')[0],
-        measurement_mode: script.checkin.measurement_mode,
-        soil_cracks: script.checkin.soil_cracks || 'none'
-    };
-    if (script.checkin.water_table_depth_cm !== undefined) {
-        checkinData.water_table_depth_cm = script.checkin.water_table_depth_cm;
-    }
-    if (script.checkin.ponded_bucket) {
-        checkinData.ponded_bucket = script.checkin.ponded_bucket;
-    }
-
-    testLogMsg(`� Submitting check-in...`);
-    let checkinAdvice = null;
-    try {
-        checkinAdvice = await apiCall('/checkin', {
-            method: 'POST',
-            body: JSON.stringify(checkinData)
-        });
-        testLogMsg(`📋 Check-in → ${checkinAdvice.recommended_action} (${checkinAdvice.confidence})`);
-    } catch (err) {
-        testLogMsg(`⚠️ Check-in: ${err.message}`);
-    }
-
-    // 3. Send farmer chat message (state already updated by check-in)
-    testLogMsg(`💬 Sending chat...`);
-    addMessage(script.chat, 'user');
-    try {
-        const chatRes = await apiCall('/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                farm_id: currentFarmId,
-                message: script.chat,
-                conversation_history: []
-            })
-        });
-        if (chatRes.response) {
-            addMessage(chatRes.response, 'assistant');
-        }
-        if (chatRes.state) {
-            statusDas.textContent = chatRes.state.das ? `${chatRes.state.das} DAS` : statusDas.textContent;
-            statusRegime.textContent = chatRes.state.regime || statusRegime.textContent;
-        }
-        testLogMsg(`✅ Chat done`);
-    } catch (err) {
-        testLogMsg(`⚠️ Chat: ${err.message}`);
-    }
-
-    // 4. Show the single authoritative advice card from check-in
-    if (checkinAdvice) {
-        displayAdviceInChat(checkinAdvice);
-    }
-}
-
-// Stage buttons — click to run the full interaction for that stage
-document.querySelectorAll('.test-stage-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        if (!currentFarmId) { alert('Open a farm first.'); return; }
-        const das = parseInt(btn.dataset.das);
-
-        document.querySelectorAll('.test-stage-btn').forEach(b => b.classList.remove('active-stage'));
-        btn.classList.add('active-stage');
-        btn.disabled = true;
-
-        try {
-            await runStage(das);
-        } catch (err) {
-            testLogMsg(`❌ Stage ${das}: ${err.message}`);
-        }
-        btn.disabled = false;
-    });
+// Next Day button
+document.getElementById('simNextDay')?.addEventListener('click', async () => {
+    if (simRunning) return;
+    await simRunDay();
 });
 
-// Simulate full journey — run ALL stages sequentially
-document.getElementById('testSimulateFull')?.addEventListener('click', async () => {
+// Play Full Season — runs all days with a pause between each
+document.getElementById('simPlayAll')?.addEventListener('click', async () => {
     if (!currentFarmId) { alert('Open a farm first.'); return; }
-    const stages = [1, 15, 22, 30, 38, 50, 60, 65, 70, 90, 110, 120];
-    const btn = document.getElementById('testSimulateFull');
-    btn.disabled = true;
-    btn.textContent = '⏳ Running...';
-    testLogMsg('🚀 Starting full season simulation (12 stages)...');
+    if (simRunning) { simRunning = false; return; } // click again to stop
 
-    for (let i = 0; i < stages.length; i++) {
-        const das = stages[i];
-        // Highlight button
-        document.querySelectorAll('.test-stage-btn').forEach(b => b.classList.remove('active-stage'));
-        const stageBtn = document.querySelector(`.test-stage-btn[data-das="${das}"]`);
-        if (stageBtn) stageBtn.classList.add('active-stage');
+    const btn = document.getElementById('simPlayAll');
+    simRunning = true;
+    btn.textContent = 'Pause';
 
-        testLogMsg(`── Stage ${i + 1}/12: Day ${das} ──`);
-        try {
-            await runStage(das);
-        } catch (err) {
-            testLogMsg(`❌ Day ${das}: ${err.message}`);
-        }
-        // Brief pause between stages so chat builds up visibly
-        if (i < stages.length - 1) {
-            await new Promise(r => setTimeout(r, 800));
-        }
+    while (simRunning && simIndex < DAILY_SCRIPT.length) {
+        const more = await simRunDay();
+        if (!more) break;
+        await new Promise(r => setTimeout(r, 1200));
     }
 
-    // Inject extra observations for certificate eligibility
-    testLogMsg('💉 Injecting extra observations for certificate...');
-    try {
-        await apiCall(`/debug/simulate-full-season/${currentFarmId}`, { method: 'POST' });
-        testLogMsg('🏆 Certificate observations injected');
-    } catch (err) {
-        testLogMsg(`⚠️ ${err.message}`);
-    }
-
-    btn.disabled = false;
-    btn.textContent = '🚀 Simulate Full Season + Certificate';
-    testLogMsg('✅ Full season simulation complete! Open World Model to see everything.');
+    simRunning = false;
+    btn.textContent = simIndex >= DAILY_SCRIPT.length ? 'Done' : 'Play Full Season';
 });
 
-// Inject tube reading
-document.getElementById('testInjectObs')?.addEventListener('click', async () => {
-    if (!currentFarmId) { alert('Open a farm first.'); return; }
-    testLogMsg('Injecting tube reading (18cm)...');
-    try {
-        await apiCall('/debug/inject-observation', {
-            method: 'POST',
-            body: JSON.stringify({ farm_id: currentFarmId, field_name: 'water_table_depth_cm', value: 18.0 })
-        });
-        testLogMsg('✅ Tube reading injected');
-    } catch (err) {
-        testLogMsg(`❌ ${err.message}`);
-    }
+// Reset
+document.getElementById('simReset')?.addEventListener('click', () => {
+    simIndex = 0;
+    simRunning = false;
+    simUpdateUI();
+    testLog.innerHTML = '';
+    document.getElementById('simPlayAll').textContent = 'Play Full Season';
+    simLog('Reset. Ready to start.');
 });
 
-// Open World Model shortcut
-document.getElementById('testOpenWM')?.addEventListener('click', async () => {
+// World Model shortcut
+document.getElementById('simWorldModel')?.addEventListener('click', async () => {
     await loadWorldModel();
     worldModelModal.style.display = 'flex';
 });
+
+simUpdateUI();
 
 // ─── Initialize ──────────────────────────────────────────
 if (authToken) {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rice Assistant</title>
-    <link rel="stylesheet" href="style.css?v=30">
+    <link rel="stylesheet" href="style.css?v=31">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -139,31 +139,21 @@
                     </div>
                 </div>
 
-                <!-- Debug Test Panel -->
+                <!-- Daily Conversation Simulator -->
                 <div id="testPanel" class="test-panel" style="display:none;">
                     <div class="test-panel-header">
-                        <strong>🧪 Stage Tester</strong>
-                        <span style="font-size:11px;opacity:0.7;">Fast-forward your farm to any stage</span>
+                        <strong>Daily Simulator</strong>
+                        <span id="simDayLabel" style="font-size:12px;opacity:0.8;">Ready</span>
                     </div>
                     <div class="test-panel-body">
-                        <div class="test-stage-grid">
-                            <button class="test-stage-btn" data-das="1" data-label="Sowing">🌱 Day 1<br><small>Sowing</small></button>
-                            <button class="test-stage-btn" data-das="15" data-label="Flooding 1">💧 Day 15<br><small>Flood C1</small></button>
-                            <button class="test-stage-btn" data-das="22" data-label="Drying 1">☀️ Day 22<br><small>Dry C1</small></button>
-                            <button class="test-stage-btn" data-das="30" data-label="Flooding 2">💧 Day 30<br><small>Flood C2</small></button>
-                            <button class="test-stage-btn" data-das="38" data-label="Drying 2">☀️ Day 38<br><small>Dry C2</small></button>
-                            <button class="test-stage-btn" data-das="50" data-label="Flooding 3">💧 Day 50<br><small>Flood C3</small></button>
-                            <button class="test-stage-btn" data-das="60" data-label="Drying 3">☀️ Day 60<br><small>Dry C3</small></button>
-                            <button class="test-stage-btn" data-das="65" data-label="Panicle Init">🌾 Day 65<br><small>Panicle</small></button>
-                            <button class="test-stage-btn" data-das="70" data-label="Flowering">🌸 Day 70<br><small>Flowering</small></button>
-                            <button class="test-stage-btn" data-das="90" data-label="Grain Fill">🌾 Day 90<br><small>Grain Fill</small></button>
-                            <button class="test-stage-btn" data-das="110" data-label="Pre-Harvest">🚜 Day 110<br><small>Harvest</small></button>
-                            <button class="test-stage-btn" data-das="120" data-label="Complete">🏆 Day 120<br><small>Done!</small></button>
-                        </div>
                         <div class="test-panel-actions">
-                            <button class="btn-primary btn-sm" id="testSimulateFull">🚀 Simulate Full Season + Certificate</button>
-                            <button class="btn-secondary btn-sm" id="testInjectObs">💉 Inject AWD Tube Reading</button>
-                            <button class="btn-secondary btn-sm" id="testOpenWM">📊 Open World Model</button>
+                            <button class="btn-primary btn-sm" id="simPlayAll">Play Full Season</button>
+                            <button class="btn-secondary btn-sm" id="simNextDay">Next Day</button>
+                            <button class="btn-secondary btn-sm" id="simReset">Reset</button>
+                            <button class="btn-secondary btn-sm" id="simWorldModel">World Model</button>
+                        </div>
+                        <div class="sim-progress">
+                            <div class="sim-progress-bar" id="simProgressBar" style="width:0%"></div>
                         </div>
                         <div id="testLog" class="test-log"></div>
                     </div>
@@ -397,6 +387,6 @@
         <div class="loading-spinner"></div>
     </div>
 
-    <script src="app.js?v=30"></script>
+    <script src="app.js?v=31"></script>
 </body>
 </html>
