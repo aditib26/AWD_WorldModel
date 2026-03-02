@@ -91,6 +91,7 @@ class WorldState(BaseModel):
         "heading", "grain_filling", "maturity", "unknown"
     ]] = None
     expected_harvest_date: Optional[date] = None
+    days_to_harvest: Optional[int] = None
     
     # Field
     soil_type: Literal["alluvial", "acid_sulfate", "clay", "sandy", "unknown"]

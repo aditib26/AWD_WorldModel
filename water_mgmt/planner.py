@@ -180,6 +180,12 @@ class WaterManagementPlanner:
                 deficit = min_ponding - state.ponded_water_cm
                 cost += COST_WEIGHTS["stress_normal_stage"] * deficit
         
+        # 1b. Maturity / pre-harvest: DO NOT irrigate — field should be drying
+        if state.growth_stage == "maturity" and action == "IRRIGATE":
+            cost += 200.0  # Very heavy penalty — harvest drying required
+        if getattr(state, 'days_to_harvest', None) is not None and state.days_to_harvest <= 15 and action == "IRRIGATE":
+            cost += 200.0  # Pre-harvest stop irrigation
+        
         # 2. Excess ponding penalty
         max_ponding = params.get("max_ponding_cm", 5.0)
         if state.ponded_water_cm > max_ponding:

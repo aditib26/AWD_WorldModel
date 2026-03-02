@@ -454,7 +454,7 @@ def unified_chat(request: ChatRequest, current_user: Optional[dict] = Depends(ge
 
 
 def _refresh_time_fields(state, profile):
-    """Auto-update DAS, growth stage, and state_date from sowing_date + today.
+    """Auto-update DAS, growth stage, days_to_harvest, and state_date from sowing_date + today.
     Fixes bug where DAS was frozen from first state creation."""
     today = date.today()
     state = state.model_copy(deep=True)
@@ -464,6 +464,11 @@ def _refresh_time_fields(state, profile):
     if sowing:
         state.das = (today - sowing).days
         state.growth_stage = state_manager.infer_growth_stage(state.das)
+        
+        # Compute days_to_harvest so pre-harvest stop_irrigation rule can fire
+        duration_map = {"short": 90, "medium": 115, "long": 140, "unknown": 115}
+        total_days = duration_map.get(profile.variety_duration, 115)
+        state.days_to_harvest = max(0, total_days - state.das)
     
     state.last_updated = datetime.now()
     return state

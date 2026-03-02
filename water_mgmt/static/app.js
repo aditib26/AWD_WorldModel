@@ -1248,29 +1248,29 @@ const testLog = document.getElementById('testLog');
 
 // Realistic farmer interactions for each AWD stage
 const STAGE_SCRIPTS = {
-    1:   { chat: "I just sowed my rice field today. The field is flooded with about 3 cm of standing water. Soil type is alluvial.",
+    1:   { chat: "I planted my rice this morning. There is some water in the field, maybe 3 centimeters. What should I do now?",
            checkin: { measurement_mode: "standing_water_bucket", ponded_bucket: "three_five", soil_cracks: "none" } },
-    15:  { chat: "It's been 15 days. The seedlings are growing well. Field still has about 4 cm of standing water from the initial flooding.",
+    15:  { chat: "My seedlings are coming up nice. The field still has water standing in it. Is this okay or should I drain some?",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 2.0, soil_cracks: "none" } },
-    22:  { chat: "Day 22. I checked my AWD tube — the water level has dropped to about 10 cm below the soil surface. No cracks yet. Should I let it keep drying?",
+    22:  { chat: "I looked at the tube and the water went down, about 10 centimeters below the ground. No cracks in the soil. Should I add water?",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 10.0, soil_cracks: "none" } },
-    30:  { chat: "It's day 30 now. I re-flooded the field yesterday after the first dry-down. Water is about 4 cm deep. Starting cycle 2.",
+    30:  { chat: "I put water back in the field yesterday. It is about 4 centimeters deep now. The plants look good.",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 0, soil_cracks: "none" } },
-    38:  { chat: "Day 38. Second drying cycle. Water table is 12 cm below surface in the tube. I can see some small hairline cracks starting to appear.",
+    38:  { chat: "The water went down again, tube says 12 centimeters. I can see some small cracks in the ground. What do you think?",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 12.0, soil_cracks: "small" } },
-    50:  { chat: "Day 50, third flooding. I refilled to about 5 cm. Plants are tillering nicely. Starting cycle 3 now.",
+    50:  { chat: "I flooded the field again. Water is about 5 centimeters. The plants are getting bigger and have many tillers.",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 0, soil_cracks: "none" } },
-    60:  { chat: "Day 60, third dry-down. Tube shows water at 16 cm below surface. Some visible cracks in the bunds. Plants look healthy though.",
+    60:  { chat: "The field is drying out. Tube shows 16 centimeters below surface. There are some cracks near the edges. Plants still look healthy.",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 16.0, soil_cracks: "visible" } },
-    65:  { chat: "Day 65. I think panicle initiation is starting — I can see the stem swelling. Should I keep the field wet during this stage?",
+    65:  { chat: "I can see the stems are getting thicker, I think the grain head is forming inside. Should I keep more water in the field?",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 5.0, soil_cracks: "none" } },
-    70:  { chat: "Day 70. Flowering has begun! I see the panicles emerging. I'm keeping the field flooded at about 3 cm as recommended.",
+    70:  { chat: "The rice is flowering now! I can see the white flowers on top. I have about 3 centimeters of water. Is that enough?",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 0, soil_cracks: "none" } },
-    90:  { chat: "Day 90. Grain filling stage. The grains are getting heavier and the panicles are bending. Water is at 2 cm standing.",
+    90:  { chat: "The grains are getting heavy and the heads are bending down. There is a little water in the field, maybe 2 centimeters.",
            checkin: { measurement_mode: "standing_water_bucket", ponded_bucket: "one_two", soil_cracks: "none" } },
-    110: { chat: "Day 110. Almost harvest time. I've started draining the field. The soil is drying out with some deep cracks. Grains are turning golden.",
+    110: { chat: "I think harvest is coming soon. The grains are turning golden. I stopped adding water and the soil has big cracks now.",
            checkin: { measurement_mode: "awd_tube", water_table_depth_cm: 25.0, soil_cracks: "deep" } },
-    120: { chat: "Day 120. Harvest is done! The field is completely dry. I completed all 3 AWD cycles this season. Can I get my certificate?",
+    120: { chat: "I finished harvesting! The field is completely dry. I did the wetting and drying three times this season. How did I do?",
            checkin: { measurement_mode: "standing_water_bucket", ponded_bucket: "zero", soil_cracks: "deep" } },
 };
 
@@ -1300,34 +1300,7 @@ async function runStage(das) {
     statusDas.textContent = `${sowRes.das} DAS`;
     testLogMsg(`📅 DAS=${sowRes.das}, Stage=${sowRes.growth_stage}`);
 
-    // 2. Send farmer chat message
-    testLogMsg(`💬 Sending chat: "${script.chat.slice(0, 50)}..."`);
-    addMessage(script.chat, 'user');
-    try {
-        const chatRes = await apiCall('/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                farm_id: currentFarmId,
-                message: script.chat,
-                conversation_history: []
-            })
-        });
-        if (chatRes.response) {
-            addMessage(chatRes.response, 'assistant');
-        }
-        if (chatRes.advice) {
-            displayCompactAdvice(chatRes.advice);
-        }
-        if (chatRes.state) {
-            statusDas.textContent = chatRes.state.das ? `${chatRes.state.das} DAS` : statusDas.textContent;
-            statusRegime.textContent = chatRes.state.regime || statusRegime.textContent;
-        }
-        testLogMsg(`✅ Chat done. State changed: ${chatRes.state_changed}`);
-    } catch (err) {
-        testLogMsg(`⚠️ Chat: ${err.message}`);
-    }
-
-    // 3. Submit check-in
+    // 2. Submit check-in FIRST so state/observations are updated
     const checkinData = {
         farm_id: currentFarmId,
         checkin_date: new Date().toISOString().split('T')[0],
@@ -1341,16 +1314,45 @@ async function runStage(das) {
         checkinData.ponded_bucket = script.checkin.ponded_bucket;
     }
 
-    testLogMsg(`📋 Submitting check-in...`);
+    testLogMsg(`� Submitting check-in...`);
+    let checkinAdvice = null;
     try {
-        const ciRes = await apiCall('/checkin', {
+        checkinAdvice = await apiCall('/checkin', {
             method: 'POST',
             body: JSON.stringify(checkinData)
         });
-        displayAdviceInChat(ciRes);
-        testLogMsg(`✅ Check-in done → ${ciRes.recommended_action} (${ciRes.confidence})`);
+        testLogMsg(`📋 Check-in → ${checkinAdvice.recommended_action} (${checkinAdvice.confidence})`);
     } catch (err) {
         testLogMsg(`⚠️ Check-in: ${err.message}`);
+    }
+
+    // 3. Send farmer chat message (state already updated by check-in)
+    testLogMsg(`💬 Sending chat...`);
+    addMessage(script.chat, 'user');
+    try {
+        const chatRes = await apiCall('/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                farm_id: currentFarmId,
+                message: script.chat,
+                conversation_history: []
+            })
+        });
+        if (chatRes.response) {
+            addMessage(chatRes.response, 'assistant');
+        }
+        if (chatRes.state) {
+            statusDas.textContent = chatRes.state.das ? `${chatRes.state.das} DAS` : statusDas.textContent;
+            statusRegime.textContent = chatRes.state.regime || statusRegime.textContent;
+        }
+        testLogMsg(`✅ Chat done`);
+    } catch (err) {
+        testLogMsg(`⚠️ Chat: ${err.message}`);
+    }
+
+    // 4. Show the single authoritative advice card from check-in
+    if (checkinAdvice) {
+        displayAdviceInChat(checkinAdvice);
     }
 }
 
