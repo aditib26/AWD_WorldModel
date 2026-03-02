@@ -158,9 +158,19 @@ async function loadFarmList() {
     if (!dashFarmGrid) return;
     dashFarmGrid.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;">Loading farms...</p>';
 
-    // For now we keep it simple: if user has farms stored locally, show them
-    // Otherwise show empty state
-    const farms = JSON.parse(localStorage.getItem('rice_farms_' + authUserEmail) || '[]');
+    let farms = [];
+    try {
+        const res = await apiCall('/farms');
+        farms = res.farms || [];
+    } catch (e) {
+        // Fallback to localStorage if server unavailable
+        farms = JSON.parse(localStorage.getItem('rice_farms_' + authUserEmail) || '[]');
+    }
+
+    // Sync to localStorage as cache
+    if (farms.length > 0) {
+        localStorage.setItem('rice_farms_' + authUserEmail, JSON.stringify(farms));
+    }
 
     dashFarmGrid.innerHTML = '';
     if (farms.length === 0) {
@@ -252,6 +262,29 @@ async function openFarm(farmId) {
         currentFarmId = farmId;
         conversationHistory = [];
 
+        // Clear previous chat messages and show fresh welcome
+        chatMessages.innerHTML = `
+            <div class="welcome-message">
+                <div class="assistant-avatar"><span>🌾</span></div>
+                <div class="message-content">
+                    <div class="message-header">Rice Assistant</div>
+                    <p>Hello! I'm your intelligent irrigation advisor for <strong>${farmId}</strong>. Tell me about your field conditions or ask me anything about water management.</p>
+                    <div class="suggested-prompts">
+                        <button class="prompt-suggestion">Water table is 16 cm below surface</button>
+                        <button class="prompt-suggestion">I see small cracks in my field</button>
+                        <button class="prompt-suggestion">Should I irrigate today?</button>
+                    </div>
+                </div>
+            </div>`;
+        // Re-bind prompt suggestion clicks
+        chatMessages.querySelectorAll('.prompt-suggestion').forEach(btn => {
+            btn.addEventListener('click', () => {
+                chatInput.value = btn.textContent;
+                chatInput.focus();
+                updateSendButton();
+            });
+        });
+
         statusFarmName.textContent = farmId;
         statusRegime.textContent = state?.regime || 'AUTO';
         statusDas.textContent = state?.das ? `${state.das} DAS` : 'New';
@@ -279,7 +312,7 @@ function addFarmToSidebar(farmId) {
     farmItem.className = 'farm-item active';
     farmItem.dataset.farm = farmId;
     farmItem.textContent = farmId;
-    farmItem.addEventListener('click', () => loadFarm(farmId));
+    farmItem.addEventListener('click', () => openFarm(farmId));
     
     // Remove active from others
     farmList.querySelectorAll('.farm-item').forEach(item => {

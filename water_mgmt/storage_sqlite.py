@@ -195,6 +195,15 @@ class SQLiteStorage:
             ).fetchone()
             return row is not None
     
+    def get_farms_for_user(self, user_id: str) -> list:
+        """Return list of farm_ids owned by a user."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT farm_id FROM farm_ownership WHERE user_id = ? ORDER BY farm_id",
+                (user_id,)
+            ).fetchall()
+            return [row["farm_id"] for row in rows]
+
     # ========== PROFILES ==========
     
     def save_profile(self, profile: FarmerProfile) -> None:

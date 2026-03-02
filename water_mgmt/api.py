@@ -163,6 +163,17 @@ def auth_me(current_user: Optional[dict] = Depends(get_current_user)):
     return {"user": current_user}
 
 
+@app.get("/farms")
+def list_farms(current_user: Optional[dict] = Depends(get_current_user)):
+    """List all farms owned by the logged-in user."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Login required")
+    farms = []
+    if hasattr(storage, "get_farms_for_user"):
+        farms = storage.get_farms_for_user(current_user["user_id"])
+    return {"farms": farms}
+
+
 class ClaimFarmRequest(BaseModel):
     farm_id: str
 
